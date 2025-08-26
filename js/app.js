@@ -190,3 +190,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn("Realtime: no se pudo subscribir", err)
   }
 })
+// ------------------------
+// UI: asegurar que el main y botones existan y estén visibles
+// ------------------------
+function ensureMainUI() {
+  const main = document.getElementById("main-screen")
+  if (!main) {
+    console.error("No se encontró #main-screen en el DOM")
+    return
+  }
+  // quitar atributo hidden si aún existe
+  main.hidden = false
+  // asegurar que el contenedor de acciones exista y tenga botones
+  let actions = document.querySelector(".actions")
+  if (!actions) {
+    actions = document.createElement("div")
+    actions.className = "actions"
+    // insertar antes del content
+    const content = document.getElementById("content")
+    main.insertBefore(actions, content)
+  }
+
+  // crear botones si no existen
+  if (!document.getElementById("btn-registrar")) {
+    const btn1 = document.createElement("button")
+    btn1.id = "btn-registrar"
+    btn1.textContent = "Registrar vehículo"
+    actions.appendChild(btn1)
+  }
+  if (!document.getElementById("btn-ver")) {
+    const btn2 = document.createElement("button")
+    btn2.id = "btn-ver"
+    btn2.textContent = "Ver registros"
+    actions.appendChild(btn2)
+  }
+
+  // forzar estilo visible (evita CSS inesperado)
+  actions.style.display = "flex"
+  actions.style.gap = "8px"
+
+  // atar listeners (solo una vez)
+  attachMainListeners()
+}
+
+function attachMainListeners() {
+  const btnRegistrar = document.getElementById("btn-registrar")
+  const btnVer = document.getElementById("btn-ver")
+  if (btnRegistrar && !btnRegistrar._attached) {
+    btnRegistrar.addEventListener("click", () => {
+      // aquí pones tu lógica para abrir formulario de registro
+      document.getElementById("content").innerHTML = "<p>Formulario de registrar vehículo (a implementar)</p>"
+    })
+    btnRegistrar._attached = true
+  }
+  if (btnVer && !btnVer._attached) {
+    btnVer.addEventListener("click", async () => {
+      // mostrar registros
+      document.getElementById("content").innerHTML = "<p>Cargando registros...</p>"
+      await cargarRegistros()
+    })
+    btnVer._attached = true
+  }
+
+  // asegurar logout
+  const logoutBtn = document.getElementById("logout-btn")
+  if (logoutBtn && !logoutBtn._attached) {
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("usuario")
+      document.getElementById("login-screen").hidden = false
+      document.getElementById("main-screen").hidden = true
+      document.getElementById("content").innerHTML = ""
+    })
+    logoutBtn._attached = true
+  }
+}
+
+// actualizar showMainScreen para usar ensureMainUI
+function showMainScreen() {
+  const login = document.getElementById("login-screen")
+  const main = document.getElementById("main-screen")
+  if (login) login.hidden = true
+  if (main) main.hidden = false
+  ensureMainUI()
+}
