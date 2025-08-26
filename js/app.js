@@ -110,9 +110,13 @@ async function cargarRegistros() {
 // ------------------------
 // HELPERS UI
 // ------------------------
+
 function showMainScreen() {
-  document.getElementById("login-screen").hidden = true
-  document.getElementById("main-screen").hidden = false
+  const login = document.getElementById("login-screen")
+  const main = document.getElementById("main-screen")
+  if (login) login.hidden = true
+  if (main) main.hidden = false
+  ensureMainUI()
 }
 
 function showLoginScreen() {
@@ -265,12 +269,4 @@ function attachMainListeners() {
   }
 }
 
-// actualizar showMainScreen para usar ensureMainUI
-function showMainScreen() {
-  const login = document.getElementById("login-screen")
-  const main = document.getElementById("main-screen")
-  if (login) login.hidden = true
-  if (main) main.hidden = false
-  ensureMainUI()
-}
 
