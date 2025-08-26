@@ -3,15 +3,27 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://supabase.com/dashboard/project/tsxojomiriruedjvnsgj/settings/api-keys'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzeG9qb21pcmlydWVkanZuc2dqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMTcyOTksImV4cCI6MjA3MTc5MzI5OX0.4dgZ-dMXgrWlgh9vjkaY0n1yv0aInWIwn51kboLM_6k' // la anon key
 
-async function login(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email, password
-  })
-  if (error) { console.error(error); return false }
-  return data
-}
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+
+async function login(usuario, contrasena) {
+  let { data, error } = await supabase
+    .from('usuarios')
+    .select('*')
+    .eq('usuario', usuario)
+    .eq('contrasena', contrasena)
+    .single()
+
+  if (error || !data) {
+    alert("Usuario o contraseña incorrectos")
+    return null
+  } else {
+    alert("Login exitoso: " + data.usuario)
+    // aquí guardas en localStorage que está logueado
+    localStorage.setItem("usuario", data.usuario)
+    return data
+  }
+}
 // fileInput es <input type="file" multiple>
 async function uploadFiles(vehiculoId, files) {
   const uploaded = []
