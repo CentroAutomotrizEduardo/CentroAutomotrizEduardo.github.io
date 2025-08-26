@@ -8,12 +8,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // 🔹 Login
 async function login(usuario, contrasena) {
+  console.log("Intentando login con:", usuario, contrasena)
+
   const { data, error } = await supabase
     .from('usuarios')
     .select('*')
     .eq('usuario', usuario)
     .eq('contrasena', contrasena)
     .single()
+
+  console.log("Data:", data)
+  console.log("Error:", error)
 
   if (error || !data) {
     document.getElementById('login-error').textContent = "Usuario o contraseña incorrectos"
@@ -26,6 +31,7 @@ async function login(usuario, contrasena) {
     return data
   }
 }
+
 window.login = login // necesario para que HTML pueda llamar login()
 
 // 🔹 Subida de fotos
