@@ -25,7 +25,8 @@ async function login(usuario, contrasena) {
     console.log("Login -> data:", data, " error:", error)
 
     if (error || !data) {
-      document.getElementById('login-error').textContent = "Usuario o contraseña incorrectos"
+      const loginError = document.getElementById('login-error')
+      if (loginError) loginError.textContent = "Usuario o contraseña incorrectos"
       return null
     } else {
       localStorage.setItem("usuario", data.usuario)
@@ -35,12 +36,16 @@ async function login(usuario, contrasena) {
     }
   } catch (err) {
     console.error("Error en login:", err)
-    document.getElementById('login-error').textContent = "Error al comunicarse con el servidor"
+    const loginError = document.getElementById('login-error')
+    if (loginError) loginError.textContent = "Error al comunicarse con el servidor"
     return null
   }
 }
-window.login = login // seguimos exponiendo por compatibilidad
+window.login = login // opcional, por compatibilidad
 
+// ------------------------
+// Storage helpers
+// ------------------------
 async function uploadFiles(vehiculoId, files) {
   const uploaded = []
   for (const file of files) {
@@ -54,30 +59,113 @@ async function uploadFiles(vehiculoId, files) {
   return uploaded
 }
 
-async function crearRegistro(payload) {
+// ------------------------
+// CRUD vehiculos/clientes (ajustado a tu esquema)
+// ------------------------
+async function crearCliente({ nombre, telefono, direccion }) {
   try {
     const { data, error } = await supabase
-      .from('vehiculos')
-      .insert([ payload ])
+      .from('clientes')
+      .insert([{ nombre, telefono, direccion }])
       .select()
+      .single()
     if (error) throw error
-    return data[0]
+    return data
   } catch (err) {
-    console.error("Error crearRegistro:", err)
+    console.error('Error crearCliente:', err)
     throw err
   }
 }
 
-async function listarRegistros() {
+async function crearVehiculo(payload) {
   try {
     const { data, error } = await supabase
       .from('vehiculos')
-      .select('*')
-      .order('created_at', { ascending: false })
+      .insert([payload])
+      .select()
+      .single()
     if (error) throw error
     return data
   } catch (err) {
-    console.error("Error listarRegistros:", err)
+    console.error('Error crearVehiculo:', err)
+    throw err
+  }
+}
+
+async function crearRegistroCompleto(input) {
+  try {
+    // Si el input trae cliente_id (cuando reusamos cliente), usamos eso
+    let cliente = null
+    if (input.cliente_id) {
+      // obtener cliente por id
+      const { data, error } = await supabase.from('clientes').select('*').eq('id', input.cliente_id).single()
+      if (error) throw error
+      cliente = data
+    } else {
+      cliente = await crearCliente(input.cliente)
+    }
+
+    const payloadVehiculo = {
+      cliente_id: cliente.id,
+      marca: input.vehiculo.marca || null,
+      modelo: input.vehiculo.modelo || null,
+      color: input.vehiculo.color || null,
+      placa: input.vehiculo.placa || null,
+      kilometraje: input.vehiculo.kilometraje || null,
+      checklist: input.vehiculo.checklist || {},
+      tablero_photo_path: input.vehiculo.tableroPath || null,
+      photos: input.vehiculo.photos || [],
+      trabajo: input.vehiculo.trabajo || null,
+      firma_path: input.vehiculo.firmaPath || null,
+      clausula: input.vehiculo.clausula || null,
+      status: input.vehiculo.status || 'activo'
+    }
+
+    const vehiculo = await crearVehiculo(payloadVehiculo)
+    return { cliente, vehiculo }
+  } catch (err) {
+    console.error('Error crearRegistroCompleto:', err)
+    throw err
+  }
+}
+
+// Versión básica listar vehiculos (fallback incluido para traer clientes)
+async function listarRegistros() {
+  try {
+    // Intentamos traer vehiculos con cliente embebido
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .select('*, clientes(*)')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      return data
+    }
+    // else: fallback
+  } catch (err) {
+    console.warn('listarRegistros (embed) falló:', err)
+  }
+
+  try {
+    const { data: vehs, error: errVeh } = await supabase
+      .from('vehiculos')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (errVeh) throw errVeh
+    if (!vehs || vehs.length === 0) return []
+    const clienteIds = Array.from(new Set(vehs.map(v => v.cliente_id).filter(Boolean)))
+    let clientesMap = {}
+    if (clienteIds.length) {
+      const { data: clientesData, error: errCli } = await supabase
+        .from('clientes')
+        .select('*')
+        .in('id', clienteIds)
+      if (errCli) throw errCli
+      clientesMap = (clientesData || []).reduce((acc, c) => { acc[c.id] = c; return acc }, {})
+    }
+    return vehs.map(v => ({ ...v, cliente: clientesMap[v.cliente_id] || null }))
+  } catch (err) {
+    console.error('Error listarRegistros fallback:', err)
     return []
   }
 }
@@ -86,170 +174,64 @@ async function cargarRegistros() {
   try {
     const registros = await listarRegistros()
     const contenedor = document.getElementById("content")
+    if (!contenedor) return
     contenedor.innerHTML = ""
     if (!registros || registros.length === 0) {
       contenedor.innerHTML = "<p>No hay registros.</p>"
       return
     }
+
     registros.forEach(r => {
+      const cliente = r.clientes ? (Array.isArray(r.clientes) ? r.clientes[0] : r.clientes) : (r.cliente ? r.cliente : null)
+      const nombreCliente = cliente ? (cliente.nombre || '—') : '—'
+      const telefonoCliente = cliente ? (cliente.telefono || '') : ''
+      const marca = r.marca || r.vehiculo_marca || '—'
+      const modelo = r.modelo || r.vehiculo_modelo || ''
+      const placa = r.placa || r.vehiculo_placa || '—'
+      const km = r.kilometraje ?? r.vehiculo_kilometraje ?? '—'
+
       const div = document.createElement("div")
       div.className = "registro"
       div.innerHTML = `
-        <h3>${r.cliente_nombre || '—'} - ${r.vehiculo_marca || '—'} ${r.vehiculo_modelo || ''}</h3>
-        <p>Placa: ${r.vehiculo_placa || '—'}</p>
-        <p>Fecha: ${r.created_at || '—'}</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <h3>${nombreCliente} — ${marca} ${modelo}</h3>
+            <p>Placa: ${placa} · KM: ${km}</p>
+            <p style="color:var(--muted)">Tel: ${telefonoCliente}</p>
+          </div>
+          <div style="text-align:right; font-size:0.9rem; color:var(--muted)">
+            ${r.created_at ? new Date(r.created_at).toLocaleString() : ''}
+          </div>
+        </div>
       `
       contenedor.appendChild(div)
     })
   } catch (err) {
-    console.error("Error en cargarRegistros:", err)
-    document.getElementById("content").innerText = "Error al cargar registros"
+    console.error('Error en cargarRegistros:', err)
+    const contenedor = document.getElementById("content")
+    if (contenedor) contenedor.innerText = "Error al cargar registros"
   }
 }
 
 // ------------------------
-// HELPERS UI
+// UI helpers y listeners
 // ------------------------
 
-function showMainScreen() {
-  const login = document.getElementById("login-screen")
-  const main = document.getElementById("main-screen")
-  if (login) login.hidden = true
-  if (main) main.hidden = false
-  ensureMainUI()
-}
-
-function showLoginScreen() {
-  document.getElementById("login-screen").hidden = false
-  document.getElementById("main-screen").hidden = true
-}
-
-// ------------------------
-// INICIALIZACIÓN
-// ------------------------
-document.addEventListener('DOMContentLoaded', async () => {
-  // Obtener referencias
-  const loginForm = document.getElementById("login-form")
-  const loginError = document.getElementById("login-error")
-  if (loginError) loginError.textContent = ""
-
-  // ocultar logout al inicio (estamos en pantalla de login por defecto)
-  const logoutBtn = document.getElementById("logout-btn")
-  if (logoutBtn) logoutBtn.style.display = 'none'
-
-  // Asegurarnos de que el UI principal y sus listeners existen (si los botones están en HTML o los crea JS)
-  try {
-    ensureMainUI()
-  } catch (err) {
-    console.warn("ensureMainUI falló en init:", err)
-  }
-
-  // Atar listener del formulario de login
-  if (loginForm) {
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault()
-      if (loginError) loginError.textContent = ""
-      const usuario = document.getElementById("usuario").value.trim()
-      const contrasena = document.getElementById("contrasena").value
-      if (!usuario || !contrasena) {
-        if (loginError) loginError.textContent = "Ingresa usuario y contraseña"
-        return
-      }
-      await login(usuario, contrasena)
-    })
-  } else {
-    console.warn("No se encontró #login-form en el DOM")
-  }
-
-  // Asegurar que el logout tenga un listener (por si attachMainListeners no se ejecutó)
-  if (logoutBtn && !logoutBtn._domAttached) {
-    logoutBtn.addEventListener("click", () => {
-      localStorage.removeItem("usuario")
-      showLoginScreen()
-      const content = document.getElementById("content")
-      if (content) content.innerHTML = ""
-    })
-    logoutBtn._domAttached = true
-  }
-
-  // Si ya hay usuario en localStorage, ir al main y cargar registros
-  try {
-    const saved = localStorage.getItem("usuario")
-    if (saved) {
-      console.log("Usuario en localStorage:", saved)
-      showMainScreen()
-      // cargarRegistros puede lanzar; lo atrapamos
-      try {
-        await cargarRegistros()
-      } catch (err) {
-        console.error("Error cargando registros al inicio:", err)
-      }
-    }
-  } catch (err) {
-    console.warn("No se pudo leer localStorage:", err)
-  }
-
-  // Pequeña verificación de conexión con Supabase (debug)
-  try {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('id')
-      .limit(1)
-    if (error) {
-      console.warn("Verificación Supabase devolvió error:", error)
-    } else {
-      console.log("Conexión a Supabase OK (usuarios table accesible).")
-    }
-  } catch (err) {
-    console.error("No se pudo verificar Supabase:", err)
-  }
-
-  // Suscripción realtime para actualizar lista automáticamente (si supabase soporta channel)
-  try {
-    // creamos/subscribimos a canal (idempotente si ya existe)
-    supabase.channel('vehiculos-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehiculos' }, payload => {
-        console.log("Realtime payload:", payload)
-        // recarga lista cada vez que detectamos un cambio (sin bloquear UI)
-        cargarRegistros().catch(e => console.error("Error recargando registros por realtime:", e))
-      })
-      .subscribe()
-  } catch (err) {
-    console.warn("Realtime: no se pudo subscribir", err)
-  }
-
-  // Finalmente, si los botones ya están en el HTML, ensureMainUI() habrá atado listeners;
-  // si por alguna razón no, forzamos attachMainListeners una vez más.
-  try {
-    attachMainListeners()
-  } catch (err) {
-    console.warn("attachMainListeners fallo en init:", err)
-  }
-})
-
-// ------------------------
-// UI: asegurar que el main y botones existan y estén visibles
-// ------------------------
 function ensureMainUI() {
   const main = document.getElementById("main-screen")
   if (!main) {
     console.error("No se encontró #main-screen en el DOM")
     return
   }
-  // quitar atributo hidden si aún existe (no mostrar por defecto, controlado por showMainScreen)
-  // main.hidden = false // no forzamos aquí; lo hace showMainScreen
 
-  // asegurar que el contenedor de acciones exista y tenga botones
   let actions = document.querySelector(".actions")
   if (!actions) {
     actions = document.createElement("div")
     actions.className = "actions"
-    // insertar antes del content
-    const content = document.getElementById("content")
+    const content = document.getElementById("content") || document.createElement('main')
     main.insertBefore(actions, content)
   }
 
-  // crear botones si no existen (mantiene estilos existentes)
   if (!document.getElementById("btn-registrar")) {
     const btn1 = document.createElement("button")
     btn1.id = "btn-registrar"
@@ -265,54 +247,46 @@ function ensureMainUI() {
     actions.appendChild(btn2)
   }
 
-  // forzar estilo visible (evita CSS inesperado)
   actions.style.display = "flex"
   actions.style.gap = "8px"
 
-  // atar listeners (solo una vez, y también si botones están en HTML)
   attachMainListeners()
 }
 
 function attachMainListeners() {
-  // Registrar
   const btnRegistrar = document.getElementById("btn-registrar")
   if (btnRegistrar && !btnRegistrar._attached) {
     btnRegistrar.addEventListener("click", () => {
-      // usa renderRegistrarForm si existe, si no, placeholder
-      if (typeof renderRegistrarForm === 'function') {
-        renderRegistrarForm()
-      } else {
-        document.getElementById("content").innerHTML = "<p>Formulario de registrar vehículo (a implementar)</p>"
-      }
+      if (typeof renderRegistrarForm === 'function') renderRegistrarForm()
+      else document.getElementById("content").innerHTML = "<p>Formulario de registrar vehículo (a implementar)</p>"
       window.scrollTo({ top: 0, behavior: 'smooth' })
     })
     btnRegistrar._attached = true
   }
 
-  // Ver registros
   const btnVer = document.getElementById("btn-ver")
   if (btnVer && !btnVer._attached) {
     btnVer.addEventListener("click", async () => {
-      document.getElementById("content").innerHTML = "<p>Cargando registros...</p>"
+      const content = document.getElementById("content")
+      if (content) content.innerHTML = "<p>Cargando registros...</p>"
       await cargarRegistros()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     })
     btnVer._attached = true
   }
 
-  // Logout
   const logoutBtn = document.getElementById("logout-btn")
   if (logoutBtn && !logoutBtn._attached) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("usuario")
       showLoginScreen()
-      document.getElementById("content").innerHTML = ""
+      const content = document.getElementById("content")
+      if (content) content.innerHTML = ""
     })
     logoutBtn._attached = true
   }
 }
 
-// Mostrar / ocultar pantallas + controlar boton logout
 function showMainScreen() {
   const login = document.getElementById("login-screen")
   const main = document.getElementById("main-screen")
@@ -332,17 +306,16 @@ function showLoginScreen() {
   if (logout) logout.style.display = 'none'
 }
 
-
-/* ---------- BÚSQUEDAS: placa y teléfono ---------- */
-
+// ------------------------
+// Búsqueda por placa y teléfono
+// ------------------------
 async function buscarPorPlaca(placa) {
   if (!placa) return null
   try {
     const placaTrim = placa.trim()
-    // Buscar el último registro con esa placa (case-insensitive)
     const { data, error } = await supabase
       .from('vehiculos')
-      .select('marca,modelo,color,placa,kilometraje')
+      .select('marca,modelo,color,placa,kilometraje,cliente_id')
       .ilike('placa', placaTrim)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -382,11 +355,12 @@ async function buscarPorTelefono(telefono) {
   }
 }
 
-/* ---------- Formulario Registrar Vehículo (render + lógica) ----------
-   Esta versión añade listeners de búsqueda por placa y teléfono.
-*/
+// ------------------------
+// Formulario Registrar + firma + subida + submit
+// ------------------------
 function renderRegistrarForm() {
   const content = document.getElementById("content")
+  if (!content) return
   content.innerHTML = `
     <div class="registro-card">
       <h2>Registrar vehículo</h2>
@@ -467,14 +441,11 @@ function renderRegistrarForm() {
     </div>
   `
 
-  // init signature pad
   initSignaturePad()
 
-  // atar listener de submit
   const form = document.getElementById("registrar-form")
-  form.addEventListener("submit", handleRegistrarSubmit)
+  if (form) form.addEventListener("submit", handleRegistrarSubmit)
 
-  // atar búsqueda por placa (botón y blur)
   const placaInput = document.getElementById('veh-placa')
   const placaStatus = document.getElementById('placa-status')
   const buscarPlacaBtn = document.getElementById('buscar-placa')
@@ -484,7 +455,6 @@ function renderRegistrarForm() {
     try {
       const found = await buscarPorPlaca(valor)
       if (found) {
-        // Rellenar solo datos del vehículo
         document.getElementById('veh-marca').value = found.marca || ''
         document.getElementById('veh-modelo').value = found.modelo || ''
         document.getElementById('veh-color').value = found.color || ''
@@ -501,16 +471,19 @@ function renderRegistrarForm() {
     setTimeout(() => { placaStatus.textContent = '' }, 3500)
   }
 
-  placaInput.addEventListener('blur', (e) => {
-    const v = e.target.value.trim()
-    if (v) doBuscarPlaca(v)
-  })
-  buscarPlacaBtn.addEventListener('click', () => {
-    const v = placaInput.value.trim()
-    if (v) doBuscarPlaca(v)
-  })
+  if (placaInput) {
+    placaInput.addEventListener('blur', (e) => {
+      const v = e.target.value.trim()
+      if (v) doBuscarPlaca(v)
+    })
+  }
+  if (buscarPlacaBtn) {
+    buscarPlacaBtn.addEventListener('click', () => {
+      const v = placaInput.value.trim()
+      if (v) doBuscarPlaca(v)
+    })
+  }
 
-  // atar búsqueda por teléfono (botón y blur)
   const telInput = document.getElementById('cliente-telefono')
   const telStatus = document.getElementById('telefono-status')
   const buscarTelBtn = document.getElementById('buscar-telefono')
@@ -533,12 +506,288 @@ function renderRegistrarForm() {
     setTimeout(() => { telStatus.textContent = '' }, 3500)
   }
 
-  telInput.addEventListener('blur', (e) => {
-    const v = e.target.value.trim()
-    if (v) doBuscarTelefono(v)
+  if (telInput) {
+    telInput.addEventListener('blur', (e) => {
+      const v = e.target.value.trim()
+      if (v) doBuscarTelefono(v)
+    })
+  }
+  if (buscarTelBtn) {
+    buscarTelBtn.addEventListener('click', () => {
+      const v = telInput.value.trim()
+      if (v) doBuscarTelefono(v)
+    })
+  }
+}
+
+// Signature pad
+function initSignaturePad() {
+  const canvas = document.getElementById('signature-pad')
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  let drawing = false
+  let last = { x: 0, y: 0 }
+
+  function getPos(e) {
+    if (e.touches && e.touches.length) {
+      const rect = canvas.getBoundingClientRect()
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }
+    } else {
+      const rect = canvas.getBoundingClientRect()
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    }
+  }
+
+  ctx.lineWidth = 2.5
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = '#0f172a'
+
+  canvas.addEventListener('mousedown', (e) => { drawing = true; last = getPos(e) })
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); drawing = true; last = getPos(e) }, { passive: false })
+  window.addEventListener('mouseup', () => { drawing = false })
+  canvas.addEventListener('mousemove', (e) => {
+    if (!drawing) return
+    const p = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(last.x, last.y)
+    ctx.lineTo(p.x, p.y)
+    ctx.stroke()
+    last = p
   })
-  buscarTelBtn.addEventListener('click', () => {
-    const v = telInput.value.trim()
-    if (v) doBuscarTelefono(v)
+  canvas.addEventListener('touchmove', (e) => {
+    if (!drawing) return
+    const p = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(last.x, last.y)
+    ctx.lineTo(p.x, p.y)
+    ctx.stroke()
+    last = p
+  }, { passive: false })
+
+  const clearBtn = document.getElementById('clear-sign')
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    })
+  }
+}
+
+function getSignatureBlob() {
+  return new Promise((resolve) => {
+    const canvas = document.getElementById('signature-pad')
+    if (!canvas) return resolve(null)
+    canvas.toBlob((blob) => {
+      resolve(blob)
+    }, 'image/png')
   })
 }
+
+// Submit handler (usa crearRegistroCompleto)
+async function handleRegistrarSubmit(ev) {
+  ev.preventDefault()
+  const btn = document.getElementById('submit-registrar')
+  const status = document.getElementById('registrar-status')
+  if (btn) btn.disabled = true
+  if (status) status.textContent = 'Guardando...'
+  try {
+    // cliente
+    const cliente_nombre = document.getElementById('cliente-nombre').value.trim()
+    const cliente_telefono = document.getElementById('cliente-telefono').value.trim()
+    const cliente_direccion = document.getElementById('cliente-direccion').value.trim()
+    // vehiculo
+    const vehiculo_marca = document.getElementById('veh-marca').value.trim()
+    const vehiculo_modelo = document.getElementById('veh-modelo').value.trim()
+    const vehiculo_color = document.getElementById('veh-color').value.trim()
+    const vehiculo_placa = document.getElementById('veh-placa').value.trim()
+    const vehiculo_km = parseInt(document.getElementById('veh-km').value || 0, 10)
+    const checklist = collectChecklist()
+    const trabajo = document.getElementById('trabajo-text').value.trim()
+
+    const vehiculoId = `veh_${Date.now()}_${Math.floor(Math.random()*9000+1000)}`
+
+    // archivos y firma
+    const tableroInput = document.getElementById('tablero-input')
+    const fotosInput = document.getElementById('fotos-input')
+    const fotosFiles = fotosInput && fotosInput.files ? Array.from(fotosInput.files) : []
+    const tableroFiles = tableroInput && tableroInput.files && tableroInput.files[0] ? [tableroInput.files[0]] : []
+
+    let firmaPath = null
+    const firmaBlob = await getSignatureBlob()
+    if (firmaBlob) {
+      try {
+        const file = new File([firmaBlob], `firma_${vehiculoId}.png`, { type: 'image/png' })
+        const { data: firmaData, error: firmaErr } = await supabase.storage
+          .from('vehiculos-photos')
+          .upload(`${vehiculoId}/firma_${Date.now()}.png`, file, { cacheControl: '3600', upsert: false })
+        if (firmaErr) console.warn("No se pudo subir firma:", firmaErr)
+        else firmaPath = firmaData.path
+      } catch (err) { console.warn('Error subiendo firma:', err) }
+    }
+
+    // subir tablero
+    let tableroPath = null
+    if (tableroFiles.length) {
+      try {
+        const uploadedTab = await uploadFiles(vehiculoId, tableroFiles)
+        if (uploadedTab && uploadedTab.length) tableroPath = uploadedTab[0].path
+      } catch (err) { console.warn('Error subir tablero', err) }
+    }
+
+    // subir fotos
+    let fotosPaths = []
+    if (fotosFiles.length) {
+      try {
+        const uploaded = await uploadFiles(vehiculoId, fotosFiles)
+        fotosPaths = uploaded.map(u => ({ path: u.path, name: u.name }))
+      } catch (err) { console.warn('Error subir fotos', err) }
+    }
+
+    // detectar cliente existente por telefono (si coincide) y detectar cliente_id por placa si queremos
+    let cliente_id = null
+    if (cliente_telefono) {
+      const foundCli = await buscarPorTelefono(cliente_telefono)
+      if (foundCli) cliente_id = foundCli.id
+    }
+
+    // opcion: si la placa coincide con un vehiculo existente, reutilizar cliente_id del veh encontrado
+    if (!cliente_id && vehiculo_placa) {
+      const foundVeh = await buscarPorPlaca(vehiculo_placa)
+      if (foundVeh && foundVeh.cliente_id) {
+        cliente_id = foundVeh.cliente_id
+      }
+    }
+
+    const input = {
+      cliente: {
+        nombre: cliente_nombre || '—',
+        telefono: cliente_telefono || null,
+        direccion: cliente_direccion || null
+      },
+      cliente_id: cliente_id || null,
+      vehiculo: {
+        marca: vehiculo_marca || null,
+        modelo: vehiculo_modelo || null,
+        color: vehiculo_color || null,
+        placa: vehiculo_placa || null,
+        kilometraje: Number.isFinite(vehiculo_km) ? vehiculo_km : null,
+        checklist: checklist || {},
+        tableroPath: tableroPath,
+        photos: fotosPaths,
+        trabajo: trabajo || null,
+        firmaPath: firmaPath,
+        clausula: "Lorem ipsum dolor sit amet...",
+        status: "activo"
+      }
+    }
+
+    if (status) status.textContent = 'Guardando cliente y registro...'
+    const result = await crearRegistroCompleto(input)
+
+    if (status) status.textContent = 'Registro guardado correctamente ✓'
+    const form = document.getElementById('registrar-form')
+    if (form) form.reset()
+    const canvas = document.getElementById('signature-pad')
+    if (canvas) {
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+
+    await cargarRegistros()
+    setTimeout(() => { if (status) status.textContent = '' }, 3000)
+    if (btn) btn.disabled = false
+  } catch (err) {
+    console.error("Error al guardar registro (completo):", err)
+    const status = document.getElementById('registrar-status')
+    if (status) status.textContent = 'Error al guardar registro'
+    const btn = document.getElementById('submit-registrar')
+    if (btn) btn.disabled = false
+  }
+}
+
+// helper checklist
+function collectChecklist() {
+  const checks = document.querySelectorAll('#registrar-form input[name="check"]')
+  const obj = {}
+  checks.forEach(ch => { obj[ch.value] = ch.checked })
+  return obj
+}
+
+// ------------------------
+// INITIALIZACIÓN: DOMContentLoaded
+// ------------------------
+document.addEventListener('DOMContentLoaded', async () => {
+  // Obtener referencias
+  const loginForm = document.getElementById("login-form")
+  const loginError = document.getElementById("login-error")
+  if (loginError) loginError.textContent = ""
+
+  // ocultar logout al inicio
+  const logoutBtn = document.getElementById("logout-btn")
+  if (logoutBtn) logoutBtn.style.display = 'none'
+
+  // Asegurar UI y listeners
+  try { ensureMainUI() } catch (err) { console.warn("ensureMainUI fallo:", err) }
+
+  // login form listener
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault()
+      if (loginError) loginError.textContent = ""
+      const usuario = document.getElementById("usuario").value.trim()
+      const contrasena = document.getElementById("contrasena").value
+      if (!usuario || !contrasena) {
+        if (loginError) loginError.textContent = "Ingresa usuario y contraseña"
+        return
+      }
+      await login(usuario, contrasena)
+    })
+  } else {
+    console.warn("No se encontró #login-form en el DOM")
+  }
+
+  // asegurar logout listener
+  if (logoutBtn && !logoutBtn._domAttached) {
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("usuario")
+      showLoginScreen()
+      const content = document.getElementById("content")
+      if (content) content.innerHTML = ""
+    })
+    logoutBtn._domAttached = true
+  }
+
+  // si hay usuario en localStorage -> saltar
+  try {
+    const saved = localStorage.getItem("usuario")
+    if (saved) {
+      console.log("Usuario en localStorage:", saved)
+      showMainScreen()
+      try { await cargarRegistros() } catch (e) { console.error("Error cargarRegistros init:", e) }
+    }
+  } catch (err) {
+    console.warn("No se pudo leer localStorage:", err)
+  }
+
+  // verificación supabase (debug)
+  try {
+    const { data, error } = await supabase.from('usuarios').select('id').limit(1)
+    if (error) console.warn("Verificación Supabase devolvió error:", error)
+    else console.log("Conexión a Supabase OK (usuarios table accesible).")
+  } catch (err) {
+    console.error("No se pudo verificar Supabase:", err)
+  }
+
+  // suscripción realtime (opcional)
+  try {
+    supabase.channel('vehiculos-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehiculos' }, payload => {
+        console.log("Realtime payload:", payload)
+        cargarRegistros().catch(e => console.error("Error recargando registros por realtime:", e))
+      })
+      .subscribe()
+  } catch (err) {
+    console.warn("Realtime: no se pudo subscribir", err)
+  }
+
+  try { attachMainListeners() } catch (err) { console.warn("attachMainListeners fallo:", err) }
+})
