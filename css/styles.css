@@ -237,3 +237,131 @@ button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline
 
 /* Forzar que [hidden] realmente oculte */
 [hidden]{ display:none !important; }
+
+/* ------- Header moderno y centrado ------- */
+.main-header{
+  display:flex;
+  align-items:center;
+  justify-content:center; /* centra todo horizontalmente */
+  gap: 18px;
+  padding: 18px 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.35));
+  border-radius: 14px;
+  margin: 6px 0 18px 0;
+  box-shadow: 0 8px 24px rgba(30,58,138,0.05);
+  border: 1px solid rgba(30,58,138,0.06);
+}
+
+/* marca (logo circular + texto) */
+.brand{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+}
+
+/* círculo con iniciales */
+.brand-logo{
+  width:56px;
+  height:56px;
+  min-width:56px;
+  border-radius: 50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  color: white;
+  font-size:1.05rem;
+  background: linear-gradient(135deg, #0ea5e9, #1e3a8a);
+  box-shadow: 0 8px 20px rgba(14,165,233,0.18);
+  border: 2px solid rgba(255,255,255,0.12);
+}
+
+/* texto de marca */
+.brand-text h1{
+  margin:0;
+  font-size:1.25rem;
+  line-height:1;
+  color: var(--primary);
+  letter-spacing: 0.2px;
+  font-weight:800;
+}
+.brand-text .brand-sub{
+  margin:0;
+  font-size:0.85rem;
+  color: var(--muted);
+  opacity:0.95;
+}
+
+/* ajustar cuando la pantalla es pequeña: poner logo encima del texto */
+@media (max-width:540px){
+  .main-header{
+    flex-direction:column;
+    padding: 14px;
+    gap: 10px;
+  }
+  .brand-logo{ width:64px; height:64px; font-size:1.15rem }
+  .brand-text h1{ font-size:1.15rem }
+}
+
+/* ------- Botones: más grandes, redondeados, azules ------- */
+/* Reemplaza reglas .btn, .btn-primary, .btn-secondary si existían */
+.btn{
+  border: none;
+  cursor: pointer;
+  font-weight:800;
+  border-radius: 999px; /* píldora */
+  padding: 16px 28px;
+  min-width: 220px;
+  font-size: 1.05rem;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.08);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+
+/* primary: azul más profundo con gradiente */
+.btn-primary{
+  background: linear-gradient(90deg, #0ea5e9 0%, #1e3a8a 100%);
+  color: white;
+}
+
+/* secondary: azul claro, contrastante */
+.btn-secondary{
+  background: linear-gradient(90deg, #06b6d4 0%, #0ea5e9 100%);
+  color: white;
+}
+
+/* hover / active */
+.btn:hover{ transform: translateY(-2px); box-shadow: 0 18px 40px rgba(2,6,23,0.10) }
+.btn:active{ transform: translateY(0) }
+
+/* tamaño en pantallas grandes */
+@media (min-width:900px){
+  .btn{ min-width: 260px; padding:18px 34px; font-size:1.12rem }
+}
+
+/* aseguramos que .actions siga centrando los botones */
+.actions{ justify-content:center; align-items:center; display:flex; gap:20px; flex-wrap:wrap }
+
+/* mantener logout fijo abajo-izquierda (ya existía) */
+/* Si quieres que el logout quede más pequeño en tablet/pc: */
+#logout-btn{ min-width:140px; padding:12px 16px; border-radius:10px }
+
+/* pequeños tweaks estéticos para que el header "resalte" */
+.main-header::after{
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 40px);
+  height: 1px;
+  margin-top: 78px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.03), rgba(0,0,0,0));
+  pointer-events:none;
+  opacity:0.6;
+}
+
+/* para que el header no cruce el contenedor en mobile */
+#app { position: relative }

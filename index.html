@@ -26,15 +26,23 @@
 
 
     <!-- MAIN -->
-    <section id="main-screen" hidden>
-      <header>
-        <h2>Centro Automotriz</h2>
-        <button id="logout-btn">Cerrar sesión</button>
-      </header>
+    <header class="main-header">
+        <div class="brand">
+            <div class="brand-logo" aria-hidden="true">CA</div>
+                <div class="brand-text">
+                    <h1>Centro Automotriz</h1>
+                    <p class="brand-sub">Eduardo</p>
+                </div>
+            </div>
+
+        <!-- espacio para acciones si quieres (vacío por ahora) -->
+        <div class="header-right" aria-hidden="true"></div>
+    </header>
+
 
       <div class="actions">
-        <button id="btn-registrar">Registrar vehículo</button>
-        <button id="btn-ver">Ver registros</button>
+        <button id="btn-registrar" class="btn btn-primary">Registrar vehículo</button>
+        <button id="btn-ver" class="btn btn-secondary">Ver registros</button>
       </div>
 
       <main id="content"></main>
