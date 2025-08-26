@@ -8,6 +8,12 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // ------------------------
+// Variables para fotos seleccionadas (globales)
+// ------------------------
+let selectedTableroFiles = []
+let selectedFotosFiles = []
+
+// ------------------------
 // FUNCIONES PRINCIPALES
 // ------------------------
 
@@ -361,6 +367,11 @@ async function buscarPorTelefono(telefono) {
 function renderRegistrarForm() {
   const content = document.getElementById("content")
   if (!content) return
+
+  // limpiar arrays de fotos por si hay restos
+  selectedTableroFiles = []
+  selectedFotosFiles = []
+
   content.innerHTML = `
     <div class="registro-card">
       <h2>Registrar vehículo</h2>
@@ -411,9 +422,16 @@ function renderRegistrarForm() {
         <fieldset>
           <legend>Fotos</legend>
           <label>Foto del tablero (una):</label>
-          <input type="file" id="tablero-input" accept="image/*" />
+          <div class="foto-section">
+            <button type="button" id="btn-foto-tablero" class="btn-foto">+</button>
+            <div id="preview-tablero" class="preview" aria-live="polite"></div>
+          </div>
+
           <label>Fotos del vehículo (varias):</label>
-          <input type="file" id="fotos-input" accept="image/*" multiple />
+          <div class="foto-section">
+            <button type="button" id="btn-foto-vehiculo" class="btn-foto">+</button>
+            <div id="preview-vehiculo" class="preview" aria-live="polite"></div>
+          </div>
         </fieldset>
 
         <fieldset>
@@ -424,14 +442,13 @@ function renderRegistrarForm() {
         <fieldset>
           <legend>Firma</legend>
           <div class="signature-wrap">
+            <p class="clausula"><strong>Cláusula:</strong> Lorem ipsum dolor sit amet, consectetur adipisicing elit...</p>
             <canvas id="signature-pad" width="600" height="200" style="border:1px solid rgba(0,0,0,0.08); border-radius:8px;"></canvas>
             <div style="margin-top:8px;">
               <button type="button" id="clear-sign">Limpiar firma</button>
             </div>
           </div>
         </fieldset>
-
-        <p class="clausula"><strong>Cláusula:</strong> Lorem ipsum dolor sit amet, consectetur adipisicing elit...</p>
 
         <div style="display:flex;gap:12px;align-items:center;margin-top:12px;">
           <button class="btn btn-primary" type="submit" id="submit-registrar">Guardar registro</button>
@@ -441,11 +458,50 @@ function renderRegistrarForm() {
     </div>
   `
 
+  // ocultar logout mientras se llena el formulario
+  const logoutBtn = document.getElementById("logout-btn")
+  if (logoutBtn) logoutBtn.style.display = 'none'
+
   initSignaturePad()
 
   const form = document.getElementById("registrar-form")
   if (form) form.addEventListener("submit", handleRegistrarSubmit)
 
+  // BOTÓN + para foto tablero (abre cámara en móvil o selector en PC)
+  const btnTab = document.getElementById('btn-foto-tablero')
+  if (btnTab) {
+    btnTab.addEventListener('click', () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      // apertura de cámara en móviles si está disponible
+      if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) input.setAttribute('capture', 'environment')
+      input.onchange = () => {
+        selectedTableroFiles = input.files && input.files.length ? [input.files[0]] : []
+        renderPreview('tablero', selectedTableroFiles)
+      }
+      input.click()
+    })
+  }
+
+  // BOTÓN + para fotos vehiculo (múltiples)
+  const btnVeh = document.getElementById('btn-foto-vehiculo')
+  if (btnVeh) {
+    btnVeh.addEventListener('click', () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.multiple = true
+      if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) input.setAttribute('capture', 'environment')
+      input.onchange = () => {
+        selectedFotosFiles = input.files ? Array.from(input.files) : []
+        renderPreview('vehiculo', selectedFotosFiles)
+      }
+      input.click()
+    })
+  }
+
+  // BUSCAR placa/telefono (mismos handlers que antes)
   const placaInput = document.getElementById('veh-placa')
   const placaStatus = document.getElementById('placa-status')
   const buscarPlacaBtn = document.getElementById('buscar-placa')
@@ -520,6 +576,29 @@ function renderRegistrarForm() {
   }
 }
 
+// ------------------------
+// Preview helper
+// ------------------------
+function renderPreview(target, files) {
+  const preview = document.getElementById('preview-' + target)
+  if (!preview) return
+  preview.innerHTML = ''
+  files.forEach(file => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = document.createElement('img')
+      img.src = e.target.result
+      img.alt = file.name
+      img.style.maxWidth = '120px'
+      img.style.margin = '6px'
+      img.style.borderRadius = '8px'
+      img.style.objectFit = 'cover'
+      preview.appendChild(img)
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 // Signature pad
 function initSignaturePad() {
   const canvas = document.getElementById('signature-pad')
@@ -582,7 +661,7 @@ function getSignatureBlob() {
   })
 }
 
-// Submit handler (usa crearRegistroCompleto)
+// Submit handler (usa selectedTableroFiles y selectedFotosFiles)
 async function handleRegistrarSubmit(ev) {
   ev.preventDefault()
   const btn = document.getElementById('submit-registrar')
@@ -605,11 +684,9 @@ async function handleRegistrarSubmit(ev) {
 
     const vehiculoId = `veh_${Date.now()}_${Math.floor(Math.random()*9000+1000)}`
 
-    // archivos y firma
-    const tableroInput = document.getElementById('tablero-input')
-    const fotosInput = document.getElementById('fotos-input')
-    const fotosFiles = fotosInput && fotosInput.files ? Array.from(fotosInput.files) : []
-    const tableroFiles = tableroInput && tableroInput.files && tableroInput.files[0] ? [tableroInput.files[0]] : []
+    // usar arrays seleccionadas en lugar de inputs DOM
+    const tableroFiles = selectedTableroFiles || []
+    const fotosFiles = selectedFotosFiles || []
 
     let firmaPath = null
     const firmaBlob = await getSignatureBlob()
@@ -691,6 +768,18 @@ async function handleRegistrarSubmit(ev) {
       const ctx = canvas.getContext('2d')
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
+
+    // limpiar previews y arrays
+    selectedTableroFiles = []
+    selectedFotosFiles = []
+    const pTab = document.getElementById('preview-tablero')
+    const pVeh = document.getElementById('preview-vehiculo')
+    if (pTab) pTab.innerHTML = ''
+    if (pVeh) pVeh.innerHTML = ''
+
+    // volver a mostrar logout ahora que terminaste el formulario
+    const logoutBtn = document.getElementById("logout-btn")
+    if (logoutBtn) logoutBtn.style.display = 'inline-block'
 
     await cargarRegistros()
     setTimeout(() => { if (status) status.textContent = '' }, 3000)
