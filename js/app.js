@@ -128,19 +128,31 @@ function showLoginScreen() {
 // INICIALIZACIÓN
 // ------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // Atar listener del formulario de login
+  // Obtener referencias
   const loginForm = document.getElementById("login-form")
   const loginError = document.getElementById("login-error")
-  loginError.textContent = ""
+  if (loginError) loginError.textContent = ""
 
+  // ocultar logout al inicio (estamos en pantalla de login por defecto)
+  const logoutBtn = document.getElementById("logout-btn")
+  if (logoutBtn) logoutBtn.style.display = 'none'
+
+  // Asegurarnos de que el UI principal y sus listeners existen (si los botones están en HTML o los crea JS)
+  try {
+    ensureMainUI()
+  } catch (err) {
+    console.warn("ensureMainUI falló en init:", err)
+  }
+
+  // Atar listener del formulario de login
   if (loginForm) {
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault()
-      loginError.textContent = ""
+      if (loginError) loginError.textContent = ""
       const usuario = document.getElementById("usuario").value.trim()
       const contrasena = document.getElementById("contrasena").value
       if (!usuario || !contrasena) {
-        loginError.textContent = "Ingresa usuario y contraseña"
+        if (loginError) loginError.textContent = "Ingresa usuario y contraseña"
         return
       }
       await login(usuario, contrasena)
@@ -149,21 +161,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn("No se encontró #login-form en el DOM")
   }
 
-  // Atar logout (si existe)
-  const logoutBtn = document.getElementById("logout-btn")
-  if (logoutBtn) {
+  // Asegurar que el logout tenga un listener (por si attachMainListeners no se ejecutó)
+  if (logoutBtn && !logoutBtn._domAttached) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("usuario")
       showLoginScreen()
+      const content = document.getElementById("content")
+      if (content) content.innerHTML = ""
     })
+    logoutBtn._domAttached = true
   }
 
-  // Si ya hay usuario en localStorage, saltar al main
-  const saved = localStorage.getItem("usuario")
-  if (saved) {
-    console.log("Usuario en localStorage:", saved)
-    showMainScreen()
-    await cargarRegistros()
+  // Si ya hay usuario en localStorage, ir al main y cargar registros
+  try {
+    const saved = localStorage.getItem("usuario")
+    if (saved) {
+      console.log("Usuario en localStorage:", saved)
+      showMainScreen()
+      // cargarRegistros puede lanzar; lo atrapamos
+      try {
+        await cargarRegistros()
+      } catch (err) {
+        console.error("Error cargando registros al inicio:", err)
+      }
+    }
+  } catch (err) {
+    console.warn("No se pudo leer localStorage:", err)
   }
 
   // Pequeña verificación de conexión con Supabase (debug)
@@ -181,19 +204,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error("No se pudo verificar Supabase:", err)
   }
 
-  // (Opcional) suscripción realtime para actualizar lista automáticamente
+  // Suscripción realtime para actualizar lista automáticamente (si supabase soporta channel)
   try {
+    // creamos/subscribimos a canal (idempotente si ya existe)
     supabase.channel('vehiculos-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vehiculos' }, payload => {
         console.log("Realtime payload:", payload)
-        // recarga lista cada vez que detectamos un cambio
-        cargarRegistros().catch(e => console.error(e))
+        // recarga lista cada vez que detectamos un cambio (sin bloquear UI)
+        cargarRegistros().catch(e => console.error("Error recargando registros por realtime:", e))
       })
       .subscribe()
   } catch (err) {
     console.warn("Realtime: no se pudo subscribir", err)
   }
+
+  // Finalmente, si los botones ya están en el HTML, ensureMainUI() habrá atado listeners;
+  // si por alguna razón no, forzamos attachMainListeners una vez más.
+  try {
+    attachMainListeners()
+  } catch (err) {
+    console.warn("attachMainListeners fallo en init:", err)
+  }
 })
+
 // ------------------------
 // UI: asegurar que el main y botones existan y estén visibles
 // ------------------------
@@ -203,8 +236,9 @@ function ensureMainUI() {
     console.error("No se encontró #main-screen en el DOM")
     return
   }
-  // quitar atributo hidden si aún existe
-  main.hidden = false
+  // quitar atributo hidden si aún existe (no mostrar por defecto, controlado por showMainScreen)
+  // main.hidden = false // no forzamos aquí; lo hace showMainScreen
+
   // asegurar que el contenedor de acciones exista y tenga botones
   let actions = document.querySelector(".actions")
   if (!actions) {
@@ -215,16 +249,18 @@ function ensureMainUI() {
     main.insertBefore(actions, content)
   }
 
-  // crear botones si no existen
+  // crear botones si no existen (mantiene estilos existentes)
   if (!document.getElementById("btn-registrar")) {
     const btn1 = document.createElement("button")
     btn1.id = "btn-registrar"
+    btn1.className = "btn btn-primary"
     btn1.textContent = "Registrar vehículo"
     actions.appendChild(btn1)
   }
   if (!document.getElementById("btn-ver")) {
     const btn2 = document.createElement("button")
     btn2.id = "btn-ver"
+    btn2.className = "btn btn-secondary"
     btn2.textContent = "Ver registros"
     actions.appendChild(btn2)
   }
@@ -233,41 +269,69 @@ function ensureMainUI() {
   actions.style.display = "flex"
   actions.style.gap = "8px"
 
-  // atar listeners (solo una vez)
+  // atar listeners (solo una vez, y también si botones están en HTML)
   attachMainListeners()
 }
 
 function attachMainListeners() {
+  // Registrar
   const btnRegistrar = document.getElementById("btn-registrar")
-  const btnVer = document.getElementById("btn-ver")
   if (btnRegistrar && !btnRegistrar._attached) {
     btnRegistrar.addEventListener("click", () => {
-      // aquí pones tu lógica para abrir formulario de registro
-      document.getElementById("content").innerHTML = "<p>Formulario de registrar vehículo (a implementar)</p>"
+      // usa renderRegistrarForm si existe, si no, placeholder
+      if (typeof renderRegistrarForm === 'function') {
+        renderRegistrarForm()
+      } else {
+        document.getElementById("content").innerHTML = "<p>Formulario de registrar vehículo (a implementar)</p>"
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     })
     btnRegistrar._attached = true
   }
+
+  // Ver registros
+  const btnVer = document.getElementById("btn-ver")
   if (btnVer && !btnVer._attached) {
     btnVer.addEventListener("click", async () => {
-      // mostrar registros
       document.getElementById("content").innerHTML = "<p>Cargando registros...</p>"
       await cargarRegistros()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     })
     btnVer._attached = true
   }
 
-  // asegurar logout
+  // Logout
   const logoutBtn = document.getElementById("logout-btn")
   if (logoutBtn && !logoutBtn._attached) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("usuario")
-      document.getElementById("login-screen").hidden = false
-      document.getElementById("main-screen").hidden = true
+      showLoginScreen()
       document.getElementById("content").innerHTML = ""
     })
     logoutBtn._attached = true
   }
 }
+
+// Mostrar / ocultar pantallas + controlar boton logout
+function showMainScreen() {
+  const login = document.getElementById("login-screen")
+  const main = document.getElementById("main-screen")
+  const logout = document.getElementById("logout-btn")
+  if (login) login.hidden = true
+  if (main) main.hidden = false
+  if (logout) logout.style.display = 'inline-block'
+  ensureMainUI()
+}
+
+function showLoginScreen() {
+  const login = document.getElementById("login-screen")
+  const main = document.getElementById("main-screen")
+  const logout = document.getElementById("logout-btn")
+  if (login) login.hidden = false
+  if (main) main.hidden = true
+  if (logout) logout.style.display = 'none'
+}
+
 
 /* ---------- BÚSQUEDAS: placa y teléfono ---------- */
 

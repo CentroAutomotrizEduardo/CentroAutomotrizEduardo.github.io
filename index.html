@@ -24,18 +24,16 @@
         </div>
     </section>
 
-
-    <!-- MAIN -->
-    <header class="main-header">
+    <!-- MAIN (importante: envoltorio con id="main-screen") -->
+    <section id="main-screen" hidden>
+      <header class="main-header">
         <div class="brand">
-                <div class="brand-text">
-                    <h1>Centro Automotriz Eduardo</h1>
-                </div>
-        <!-- espacio para acciones si quieres (vacío por ahora) -->
+          <div class="brand-text">
+            <h1>Centro Automotriz Eduardo</h1>
+          </div>
+        </div>
         <div class="header-right" aria-hidden="true"></div>
-        <button id="logout-btn">Cerrar sesión</button>
-    </header>
-
+      </header>
 
       <div class="actions">
         <button id="btn-registrar" class="btn btn-primary">Registrar vehículo</button>
@@ -43,6 +41,9 @@
       </div>
 
       <main id="content"></main>
+
+      <!-- logout está fuera del header para que sea fijo abajo-izquierda -->
+      <button id="logout-btn">Cerrar sesión</button>
     </section>
   </div>
 
