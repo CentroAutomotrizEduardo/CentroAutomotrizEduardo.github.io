@@ -1,36 +1,34 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-const SUPABASE_URL = 'https://supabase.com/dashboard/project/tsxojomiriruedjvnsgj'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzeG9qb21pcmlydWVkanZuc2dqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMTcyOTksImV4cCI6MjA3MTc5MzI5OX0.4dgZ-dMXgrWlgh9vjkaY0n1yv0aInWIwn51kboLM_6k' // la anon key
+// 🔹 URL correcta de tu proyecto Supabase
+const SUPABASE_URL = 'https://tsxojomiriruedjvnsgj.supabase.co' // ❌ NO usar /dashboard/project/...
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzeG9qb21pcmlydWVkanZuc2dqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMTcyOTksImV4cCI6MjA3MTc5MzI5OX0.4dgZ-dMXgrWlgh9vjkaY0n1yv0aInWIwn51kboLM_6k'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-
-const loginForm = document.getElementById("login-form")
-const errorDiv = document.getElementById("login-error")
-
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault()
-  const usuario = document.getElementById("usuario").value
-  const contrasena = document.getElementById("contrasena").value
-
-  // ejemplo de verificación contra supabase
+// 🔹 Login
+async function login(usuario, contrasena) {
   const { data, error } = await supabase
-    .from("usuarios")
-    .select("*")
-    .eq("usuario", usuario)
-    .eq("contrasena", contrasena)
+    .from('usuarios')
+    .select('*')
+    .eq('usuario', usuario)
+    .eq('contrasena', contrasena)
     .single()
 
   if (error || !data) {
-    errorDiv.textContent = "Usuario o contraseña incorrectos"
+    document.getElementById('login-error').textContent = "Usuario o contraseña incorrectos"
+    return null
   } else {
+    localStorage.setItem("usuario", data.usuario)
     document.getElementById("login-screen").hidden = true
     document.getElementById("main-screen").hidden = false
+    cargarRegistros() // carga inicial de registros
+    return data
   }
-})
+}
+window.login = login // necesario para que HTML pueda llamar login()
 
-// fileInput es <input type="file" multiple>
+// 🔹 Subida de fotos
 async function uploadFiles(vehiculoId, files) {
   const uploaded = []
   for (const file of files) {
@@ -44,6 +42,7 @@ async function uploadFiles(vehiculoId, files) {
   return uploaded
 }
 
+// 🔹 Crear registro de vehículo
 async function crearRegistro(payload) {
   const { data, error } = await supabase
     .from('vehiculos')
@@ -53,6 +52,7 @@ async function crearRegistro(payload) {
   return data[0]
 }
 
+// 🔹 Listar registros
 async function listarRegistros() {
   const { data, error } = await supabase
     .from('vehiculos')
@@ -62,4 +62,26 @@ async function listarRegistros() {
   return data
 }
 
-window.login = login
+// 🔹 Cargar registros en el DOM
+async function cargarRegistros() {
+  const registros = await listarRegistros()
+  const contenedor = document.getElementById("content")
+  contenedor.innerHTML = ""
+  registros.forEach(r => {
+    const div = document.createElement("div")
+    div.className = "registro"
+    div.innerHTML = `
+      <h3>${r.cliente_nombre} - ${r.vehiculo_marca} ${r.vehiculo_modelo}</h3>
+      <p>Placa: ${r.vehiculo_placa}</p>
+      <p>Fecha: ${r.created_at}</p>
+    `
+    contenedor.appendChild(div)
+  })
+}
+
+// 🔹 Logout
+document.getElementById("logout-btn").addEventListener("click", () => {
+  localStorage.removeItem("usuario")
+  document.getElementById("login-screen").hidden = false
+  document.getElementById("main-screen").hidden = true
+})
