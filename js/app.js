@@ -273,3 +273,4 @@ function showMainScreen() {
   if (main) main.hidden = false
   ensureMainUI()
 }
+
