@@ -10,14 +10,20 @@
   <div id="app">
     <!-- LOGIN -->
     <section id="login-screen">
-      <h1>Iniciar sesión</h1>
-      <form id="login-form">
-        <input type="text" id="usuario" placeholder="Usuario">
-        <input type="password" id="contrasena" placeholder="Contraseña">
-        <button type="submit">Entrar</button>
-      </form>
-      <div id="login-error" role="alert"></div>
+        <div class="login-card">
+            <h1>Iniciar sesión</h1>
+            <p class="subtitle">Accede con tu usuario</p>
+
+            <form id="login-form">
+                <input type="text" id="usuario" placeholder="Usuario">
+                <input type="password" id="contrasena" placeholder="Contraseña">
+                <button type="submit">Entrar</button>
+            </form>
+
+            <div id="login-error" role="alert"></div>
+        </div>
     </section>
+
 
     <!-- MAIN -->
     <section id="main-screen" hidden>
