@@ -1,5 +1,222 @@
-body { font-family: Arial, sans-serif; margin: 16px; background:#f7f7f7; color:#111; }
-#app { max-width:1000px; margin:0 auto; }
-button { padding:8px 12px; border-radius:6px; cursor:pointer; }
-.actions { margin:16px 0; display:flex; gap:8px; }
-#content { margin-top:12px; }
+/* css/styles.css
+   Modern layout responsive: login card centered, main actions centered,
+   logout fixed bottom-left red. Touch-friendly (tablet/pc).
+*/
+
+/* --------- Variables de color --------- */
+:root{
+  --bg: #f3f6fb;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --accent: #0ea5e9;   /* cyan-ish / secundario */
+  --primary: #1e3a8a;  /* azul profundo */
+  --danger: #ef4444;   /* rojo */
+  --glass: rgba(255,255,255,0.6);
+  --shadow: 0 8px 30px rgba(15,23,42,0.08);
+  --radius: 12px;
+  --gap: 12px;
+  --max-width: 1080px;
+  --touch-size: 48px; /* altura mínima para botones en tablet */
+}
+
+/* --------- Reset y base --------- */
+*{box-sizing:border-box}
+html,body{
+  height:100%;
+  margin:0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: linear-gradient(180deg, #eef6ff 0%, var(--bg) 100%);
+  color: #0f172a;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app{
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* --------- LOGIN: pantalla completa con card centrada --------- */
+#login-screen{
+  min-height: calc(100vh - 40px); /* ajusta con padding */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 20px;
+}
+
+/* Card */
+.login-card{
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), var(--card));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+  border: 1px solid rgba(30,58,138,0.06);
+}
+
+/* Cabecera de la card */
+.login-card h1{
+  margin:0 0 8px 0;
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+/* Subtitulo */
+.login-card p.subtitle{
+  margin:0 0 18px 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* Form */
+#login-form{
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+}
+
+#login-form input[type="text"],
+#login-form input[type="password"]{
+  height: 44px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(15,23,42,0.08);
+  background: linear-gradient(180deg,#fff,#fbfdff);
+  outline: none;
+  font-size: 1rem;
+}
+
+#login-form input::placeholder{ color: #9aa3b2 }
+
+/* Botón principal del login */
+#login-form button{
+  height: var(--touch-size);
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(14,165,233,0.18);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+#login-form button:active{ transform: translateY(1px) }
+#login-form button:focus{ outline: 3px solid rgba(14,165,233,0.12) }
+
+/* Mensaje de error */
+#login-error{
+  color: var(--danger);
+  margin-top: 6px;
+  min-height: 18px;
+  font-size: 0.95rem;
+}
+
+/* --------- MAIN pantalla --------- */
+#main-screen{
+  padding: 18px;
+}
+
+/* Header sencillo (oculto margen porque logout será fijo) */
+#main-screen header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* Contenedor actions: botones grandes y centrados */
+.actions{
+  display:flex;
+  gap: 16px;
+  justify-content:center;
+  align-items:center;
+  margin: 28px 0;
+  flex-wrap:wrap;
+}
+
+/* Estilos base botón */
+.btn{
+  min-width: 180px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.06);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+/* Principal y secundario */
+.btn-primary{
+  background: linear-gradient(90deg,var(--accent),var(--primary));
+  color: white;
+}
+.btn-secondary{
+  background: linear-gradient(90deg,#06b6d4,#0ea5e9);
+  color: white;
+}
+
+/* Botón rojo de cerrar sesión */
+#logout-btn{
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  background: var(--danger);
+  color: white;
+  min-width: 120px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  font-weight:700;
+  box-shadow: 0 8px 24px rgba(239,68,68,0.18);
+}
+
+/* Contenido principal */
+#content{
+  margin-top: 12px;
+  min-height: 220px;
+  border-radius: 12px;
+}
+
+/* Tarjetas de registro */
+.registro{
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
+  border: 1px solid rgba(15,23,42,0.04);
+}
+
+/* Pequeños ajustes visuales */
+h2, h3 { margin: 0 0 6px 0; }
+p { margin: 4px 0; color: var(--muted) }
+
+/* --------- Responsive: tablet/pc --------- */
+@media (min-width: 600px) {
+  #login-form input[type="text"],
+  #login-form input[type="password"]{ height:50px }
+  #login-form button{ height:52px; font-size:1.05rem }
+  .btn{ min-width: 200px; padding:14px 22px }
+}
+
+@media (min-width: 900px) {
+  #app { padding: 34px }
+  .login-card{ padding: 36px; max-width:480px }
+  .actions{ gap: 20px }
+  .btn{ min-width: 220px; font-size:1.1rem; padding:16px 26px }
+}
+
+/* Asegurar accesibilidad en focus */
+button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline: none; }
+
+/* Pequeño helper para ocultar sections con atributo hidden (evita display: none inline) */
+[hidden]{ display:none !important; }
