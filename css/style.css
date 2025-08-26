@@ -1,0 +1,5 @@
+body { font-family: Arial, sans-serif; margin: 16px; background:#f7f7f7; color:#111; }
+#app { max-width:1000px; margin:0 auto; }
+button { padding:8px 12px; border-radius:6px; cursor:pointer; }
+.actions { margin:16px 0; display:flex; gap:8px; }
+#content { margin-top:12px; }

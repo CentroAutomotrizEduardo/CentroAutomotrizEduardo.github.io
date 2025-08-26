@@ -1,13 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Centro Automotriz - Panel</title>
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <h1> 
-        gola
-    </h1>
+  <div id="app">
+    <!-- LOGIN -->
+    <section id="login-screen">
+      <h1>Iniciar sesión</h1>
+      <form id="login-form">
+        <input type="email" id="email" placeholder="email" required />
+        <input type="password" id="password" placeholder="contraseña" required />
+        <button type="submit">Entrar</button>
+      </form>
+      <div id="login-error" role="alert"></div>
+    </section>
+
+    <!-- MAIN -->
+    <section id="main-screen" hidden>
+      <header>
+        <h2>Centro Automotriz</h2>
+        <button id="logout-btn">Cerrar sesión</button>
+      </header>
+
+      <div class="actions">
+        <button id="btn-registrar">Registrar vehículo</button>
+        <button id="btn-ver">Ver registros</button>
+      </div>
+
+      <main id="content"></main>
+    </section>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
