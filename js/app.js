@@ -6,24 +6,30 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 
-async function login(usuario, contrasena) {
-  let { data, error } = await supabase
-    .from('usuarios')
-    .select('*')
-    .eq('usuario', usuario)
-    .eq('contrasena', contrasena)
+const loginForm = document.getElementById("login-form")
+const errorDiv = document.getElementById("login-error")
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault()
+  const usuario = document.getElementById("usuario").value
+  const contrasena = document.getElementById("contrasena").value
+
+  // ejemplo de verificación contra supabase
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("usuario", usuario)
+    .eq("contrasena", contrasena)
     .single()
 
   if (error || !data) {
-    alert("Usuario o contraseña incorrectos")
-    return null
+    errorDiv.textContent = "Usuario o contraseña incorrectos"
   } else {
-    alert("Login exitoso: " + data.usuario)
-    // aquí guardas en localStorage que está logueado
-    localStorage.setItem("usuario", data.usuario)
-    return data
+    document.getElementById("login-screen").hidden = true
+    document.getElementById("main-screen").hidden = false
   }
-}
+})
+
 // fileInput es <input type="file" multiple>
 async function uploadFiles(vehiculoId, files) {
   const uploaded = []
@@ -55,3 +61,5 @@ async function listarRegistros() {
   if (error) throw error
   return data
 }
+
+window.login = login
