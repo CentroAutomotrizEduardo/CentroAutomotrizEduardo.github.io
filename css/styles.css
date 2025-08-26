@@ -259,23 +259,6 @@ button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline
   gap: 12px;
 }
 
-/* círculo con iniciales */
-.brand-logo{
-  width:56px;
-  height:56px;
-  min-width:56px;
-  border-radius: 50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:800;
-  color: white;
-  font-size:1.05rem;
-  background: linear-gradient(135deg, #0ea5e9, #1e3a8a);
-  box-shadow: 0 8px 20px rgba(14,165,233,0.18);
-  border: 2px solid rgba(255,255,255,0.12);
-}
-
 /* texto de marca */
 .brand-text h1{
   margin:0;
@@ -284,12 +267,6 @@ button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline
   color: var(--primary);
   letter-spacing: 0.2px;
   font-weight:800;
-}
-.brand-text .brand-sub{
-  margin:0;
-  font-size:0.85rem;
-  color: var(--muted);
-  opacity:0.95;
 }
 
 /* ajustar cuando la pantalla es pequeña: poner logo encima del texto */
