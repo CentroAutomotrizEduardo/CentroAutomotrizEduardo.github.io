@@ -52,42 +52,46 @@ window.login = login // opcional, por compatibilidad
 // ------------------------
 // Storage helpers
 // ------------------------
-// Reemplaza tu uploadFiles por este
-async function uploadFiles(vehiculoId, files) {
-  const bucket = 'vehiculos-photos' // Asegúrate que coincide exactamente
+// Reemplaza tu uploadFiles por esta versión mejorada
+async function uploadFiles(vehiculoId, files, { upsert = false } = {}) {
+  const bucket = 'vehiculos-photos' // asegúrate que coincide exactamente
   const uploaded = []
+
+  // helper nombre seguro
+  function safeFileName(name) {
+    return name
+      .replace(/\s+/g, '_')
+      .replace(/[^A-Za-z0-9_\-\.]/g, '') // sólo caracteres seguros
+      .slice(0, 200)
+  }
 
   for (const file of files) {
     try {
-      // limpiar nombre seguro (sin caracteres raros)
-      const safeName = String(file.name || 'file')
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9_\-\.]/g, '')
-        .slice(0, 120)
-      const filename = `${vehiculoId}/${Date.now()}_${safeName}`
+      const uid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2,11)
+      const filename = `${vehiculoId}/${Date.now()}_${uid}_${safeFileName(file.name)}`
       console.log('[uploadFiles] subiendo ->', filename, file)
 
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(filename, file, { cacheControl: '3600', upsert: false })
+        .upload(filename, file, { cacheControl: '3600', upsert })
 
+      // Si la SDK devuelve error, lo mostramos con detalle
       if (error) {
-        console.error('[uploadFiles] Error response upload:', error)
+        console.error('[uploadFiles] error response:', error)
+        // algunos errores devolvieron un `status` y `message` en error
         throw error
       }
       if (!data || !data.path) {
-        console.warn('[uploadFiles] Respuesta inesperada (sin data.path):', data)
+        console.warn('[uploadFiles] upload sin data.path:', data)
       }
 
-      // Obtener URL pública (si el bucket es público)
+      // Intentar obtener URL pública (si bucket es público)
       let publicUrl = null
       try {
-        const { data: pubData, error: pubErr } = supabase.storage.from(bucket).getPublicUrl(data.path)
-        if (pubErr) console.warn('[uploadFiles] getPublicUrl error:', pubErr)
-        else publicUrl = pubData?.publicUrl ?? null
-      } catch (e) {
-        console.warn('[uploadFiles] fallo al obtener publicUrl:', e)
-      }
+        const { data: pData, error: pErr } = supabase.storage.from(bucket).getPublicUrl(data.path)
+        if (pErr) console.warn('[uploadFiles] getPublicUrl error:', pErr)
+        else publicUrl = pData?.publicUrl || pData?.publicURL || null
+      } catch (e) { console.warn('[uploadFiles] getPublicUrl exception', e) }
 
       uploaded.push({
         path: data.path,
@@ -95,16 +99,17 @@ async function uploadFiles(vehiculoId, files) {
         publicUrl
       })
 
-      console.log('[uploadFiles] OK ->', uploaded[uploaded.length - 1])
+      console.log('[uploadFiles] ok ->', uploaded[uploaded.length-1])
     } catch (err) {
-      console.error('[uploadFiles] fallo subiendo archivo:', file.name, err)
-      // relanzamos para que el caller decida
+      console.error('[uploadFiles] excepción subiendo archivo', file.name, err)
+      // re-lanzamos para que el flujo principal lo capture y muestre al usuario
       throw err
     }
   }
 
-  return uploaded // [{ path, name, publicUrl }, ...]
+  return uploaded
 }
+
 
 
 // ------------------------
