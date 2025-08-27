@@ -52,18 +52,57 @@ window.login = login // opcional, por compatibilidad
 // ------------------------
 // Storage helpers
 // ------------------------
+// Reemplaza tu uploadFiles por este
 async function uploadFiles(vehiculoId, files) {
+  const bucket = 'vehiculos-photos' // Asegúrate que coincide exactamente
   const uploaded = []
+
   for (const file of files) {
-    const path = `${vehiculoId}/${Date.now()}_${file.name}`
-    const { data, error } = await supabase.storage
-      .from('vehiculos-photos')
-      .upload(path, file, { cacheControl: '3600', upsert: false })
-    if (error) throw error
-    uploaded.push({ path: data.path, name: file.name })
+    try {
+      // crea un nombre de archivo seguro (sin / inicial)
+      const filename = `${vehiculoId}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`
+      console.log('Subiendo ->', filename, file)
+
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filename, file, { cacheControl: '3600', upsert: false })
+
+      if (error) {
+        console.error('Error response upload:', error)
+        // lanza para que el caller lo maneje (o simplemente continue según prefieras)
+        throw error
+      }
+      if (!data || !data.path) {
+        console.warn('Respuesta inesperada al subir:', data)
+      }
+
+      // obtener URL pública (nota: funciona si el bucket es público)
+      const { data: publicData, error: pubErr } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(data.path)
+
+      if (pubErr) {
+        console.warn('getPublicUrl error:', pubErr)
+      }
+      const publicUrl = publicData && (publicData.publicUrl || publicData.publicurl || publicData.publicURL) ? (publicData.publicUrl || publicData.publicurl || publicData.publicURL) : null
+
+      uploaded.push({
+        path: data.path,
+        name: file.name,
+        publicUrl: publicUrl // puede ser null si el bucket NO es público
+      })
+
+      console.log('Subida OK:', uploaded[uploaded.length-1])
+    } catch (err) {
+      console.error('UploadFiles - error subiendo archivo', file.name, err)
+      // opcional: seguir con siguientes archivos o re-lanzar
+      throw err
+    }
   }
-  return uploaded
+
+  return uploaded // [{ path, name, publicUrl }, ...]
 }
+
 
 // ------------------------
 // CRUD vehiculos/clientes (ajustado a tu esquema)
