@@ -59,43 +59,46 @@ async function uploadFiles(vehiculoId, files) {
 
   for (const file of files) {
     try {
-      // crea un nombre de archivo seguro (sin / inicial)
-      const filename = `${vehiculoId}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      console.log('Subiendo ->', filename, file)
+      // limpiar nombre seguro (sin caracteres raros)
+      const safeName = String(file.name || 'file')
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_\-\.]/g, '')
+        .slice(0, 120)
+      const filename = `${vehiculoId}/${Date.now()}_${safeName}`
+      console.log('[uploadFiles] subiendo ->', filename, file)
 
       const { data, error } = await supabase.storage
         .from(bucket)
         .upload(filename, file, { cacheControl: '3600', upsert: false })
 
       if (error) {
-        console.error('Error response upload:', error)
-        // lanza para que el caller lo maneje (o simplemente continue según prefieras)
+        console.error('[uploadFiles] Error response upload:', error)
         throw error
       }
       if (!data || !data.path) {
-        console.warn('Respuesta inesperada al subir:', data)
+        console.warn('[uploadFiles] Respuesta inesperada (sin data.path):', data)
       }
 
-      // obtener URL pública (nota: funciona si el bucket es público)
-      const { data: publicData, error: pubErr } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path)
-
-      if (pubErr) {
-        console.warn('getPublicUrl error:', pubErr)
+      // Obtener URL pública (si el bucket es público)
+      let publicUrl = null
+      try {
+        const { data: pubData, error: pubErr } = supabase.storage.from(bucket).getPublicUrl(data.path)
+        if (pubErr) console.warn('[uploadFiles] getPublicUrl error:', pubErr)
+        else publicUrl = pubData?.publicUrl ?? null
+      } catch (e) {
+        console.warn('[uploadFiles] fallo al obtener publicUrl:', e)
       }
-      const publicUrl = publicData && (publicData.publicUrl || publicData.publicurl || publicData.publicURL) ? (publicData.publicUrl || publicData.publicurl || publicData.publicURL) : null
 
       uploaded.push({
         path: data.path,
         name: file.name,
-        publicUrl: publicUrl // puede ser null si el bucket NO es público
+        publicUrl
       })
 
-      console.log('Subida OK:', uploaded[uploaded.length-1])
+      console.log('[uploadFiles] OK ->', uploaded[uploaded.length - 1])
     } catch (err) {
-      console.error('UploadFiles - error subiendo archivo', file.name, err)
-      // opcional: seguir con siguientes archivos o re-lanzar
+      console.error('[uploadFiles] fallo subiendo archivo:', file.name, err)
+      // relanzamos para que el caller decida
       throw err
     }
   }
@@ -263,10 +266,23 @@ async function cargarRegistros() {
 // ------------------------
 
 function ensureMainUI() {
-  const main = document.getElementById("main-screen")
+  // Si no hay main-screen en el DOM, lo creamos (evita quedar pegado en login si el HTML cambió)
+  let main = document.getElementById("main-screen")
   if (!main) {
-    console.error("No se encontró #main-screen en el DOM")
-    return
+    console.warn("#main-screen no encontrado: creando uno automáticamente")
+    main = document.createElement('section')
+    main.id = 'main-screen'
+    // cabecera mínima (no sobrescribimos si ya existe header principal)
+    const headerHtml = `
+      <header class="main-header">
+        <div class="brand"><div class="brand-text"><h1>Centro Automotriz Eduardo</h1></div></div>
+        <button id="logout-btn" style="display:none">Cerrar sesión</button>
+      </header>
+      <div id="main-actions-placeholder"></div>
+      <main id="content"></main>
+    `
+    main.innerHTML = headerHtml
+    document.getElementById('app')?.appendChild(main)
   }
 
   let actions = document.querySelector(".actions")
@@ -274,7 +290,8 @@ function ensureMainUI() {
     actions = document.createElement("div")
     actions.className = "actions"
     const content = document.getElementById("content") || document.createElement('main')
-    main.insertBefore(actions, content)
+    const mainEl = document.getElementById('main-screen')
+    mainEl.insertBefore(actions, content)
   }
 
   if (!document.getElementById("btn-registrar")) {
@@ -727,6 +744,8 @@ async function handleRegistrarSubmit(ev) {
     const tableroFiles = selectedTableroFiles || []
     const fotosFiles = selectedFotosFiles || []
 
+    console.log('[handleRegistrarSubmit] archivos seleccionados:', { tableroFiles, fotosFiles })
+
     let firmaPath = null
     const firmaBlob = await getSignatureBlob()
     if (firmaBlob) {
@@ -736,7 +755,10 @@ async function handleRegistrarSubmit(ev) {
           .from('vehiculos-photos')
           .upload(`${vehiculoId}/firma_${Date.now()}.png`, file, { cacheControl: '3600', upsert: false })
         if (firmaErr) console.warn("No se pudo subir firma:", firmaErr)
-        else firmaPath = firmaData.path
+        else {
+          firmaPath = firmaData.path
+          console.log('[handleRegistrarSubmit] firma subida ->', firmaPath)
+        }
       } catch (err) { console.warn('Error subiendo firma:', err) }
     }
 
@@ -744,18 +766,27 @@ async function handleRegistrarSubmit(ev) {
     let tableroPath = null
     if (tableroFiles.length) {
       try {
+        console.log('[handleRegistrarSubmit] subiendo foto del tablero...')
         const uploadedTab = await uploadFiles(vehiculoId, tableroFiles)
+        console.log('[handleRegistrarSubmit] uploadedTab:', uploadedTab)
         if (uploadedTab && uploadedTab.length) tableroPath = uploadedTab[0].path
       } catch (err) { console.warn('Error subir tablero', err) }
+    } else {
+      console.log('[handleRegistrarSubmit] no hay archivo de tablero seleccionado')
     }
 
     // subir fotos
     let fotosPaths = []
     if (fotosFiles.length) {
       try {
+        console.log('[handleRegistrarSubmit] subiendo fotos del vehículo...')
         const uploaded = await uploadFiles(vehiculoId, fotosFiles)
-        fotosPaths = uploaded.map(u => ({ path: u.path, name: u.name }))
+        console.log('[handleRegistrarSubmit] uploaded fotos:', uploaded)
+        // guardamos únicamente las rutas (strings) o el objeto completo según prefieras
+        fotosPaths = uploaded.map(u => ({ path: u.path, name: u.name, publicUrl: u.publicUrl }))
       } catch (err) { console.warn('Error subir fotos', err) }
+    } else {
+      console.log('[handleRegistrarSubmit] no hay fotos del vehiculo seleccionadas')
     }
 
     // detectar cliente existente por telefono (si coincide) y detectar cliente_id por placa si queremos
@@ -795,6 +826,9 @@ async function handleRegistrarSubmit(ev) {
         status: "activo"
       }
     }
+
+    // LOG final para depuración: revisa que tableroPath y photos no estén vacíos
+    console.log('[handleRegistrarSubmit] payload a guardar en BD:', JSON.stringify(input, null, 2))
 
     if (status) status.textContent = 'Guardando cliente y registro...'
     const result = await crearRegistroCompleto(input)
@@ -850,7 +884,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (loginError) loginError.textContent = ""
 
   // ocultar logout al inicio
-  const logoutBtn = document.getElementById("logout-btn")
+  let logoutBtn = document.getElementById("logout-btn")
   if (logoutBtn) logoutBtn.style.display = 'none'
 
   // Asegurar UI y listeners
@@ -874,6 +908,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // asegurar logout listener
+  logoutBtn = document.getElementById("logout-btn")
   if (logoutBtn && !logoutBtn._domAttached) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("usuario")
