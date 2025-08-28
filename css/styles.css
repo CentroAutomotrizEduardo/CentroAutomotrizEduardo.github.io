@@ -1,66 +1,66 @@
-/* css/styles.css
-   Versión actualizada: asegura que el título del login esté encima del formulario,
-   responsive para tablet/pc, botones centrados, logout fijo abajo-izquierda.
-*/
+/* css/styles.css Versión final: Diseño limpio con colores sólidos y botones cuadrados. */
 
 /* --------- Variables de color / layout --------- */
-:root{
+:root {
   --bg: #f3f6fb;
   --card: #ffffff;
   --muted: #6b7280;
-  --accent: #06b6d4;   /* accent cyan */
-  --primary: #1e3a8a;  /* deep blue */
-  --danger: #ef4444;   /* red */
-  --glass: rgba(255,255,255,0.7);
-  --shadow: 0 8px 30px rgba(15,23,42,0.08);
-  --radius: 12px;
+  --accent: #2563eb; /* Azul sólido */
+  --primary: #1e3a8a; /* Azul oscuro */
+  --danger: #ef4444; /* Rojo sólido */
+  --glass: rgba(255, 255, 255, 0.7);
+  --shadow: 0 4px 12px rgba(15, 23, 42, 0.08); /* Sombra más sutil */
+  --radius: 8px; /* Radio de borde menos redondeado */
   --gap: 12px;
   --max-width: 1080px;
   --touch-size: 48px;
 }
 
 /* --------- Reset y base --------- */
-*{box-sizing:border-box}
-html,body{
-  height:100%;
-  margin:0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background: linear-gradient(180deg, #eef6ff 0%, var(--bg) 100%);
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial;
+  background: var(--bg);
   color: #0f172a;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
 }
 
-#app{
+#app {
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 20px;
+  position: relative;
 }
 
 /* --------- LOGIN: pantalla completa con card centrada --------- */
-/* Hacemos el contenedor siempre centrado y en columna (titulo encima del form) */
-#login-screen{
+#login-screen {
   min-height: calc(100vh - 40px);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
 }
 
-/* Si usas una .login-card envuelve y centra perfectamente */
-.login-card{
+.login-card {
   width: 100%;
   max-width: 480px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.94), var(--card));
+  background: var(--card);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 28px;
-  border: 1px solid rgba(30,58,138,0.06);
+  border: 1px solid rgba(30, 58, 138, 0.06);
 }
 
-/* Si no usas .login-card, aplicamos estilos al bloque interior para que se vea igual */
 #login-screen > .inner-card,
 #login-screen > h1 + #login-form,
 #login-screen > form {
@@ -68,120 +68,144 @@ html,body{
   max-width: 480px;
 }
 
-/* Cabecera de la card / titulo */
 .login-card h1,
 #login-screen > h1 {
-  margin:0 0 8px 0;
+  margin: 0 0 8px 0;
   font-size: 1.5rem;
   color: var(--primary);
   text-align: center;
 }
 
-/* Subtitulo (opcional) */
-.login-card p.subtitle{
-  margin:0 0 14px 0;
+.login-card p.subtitle {
+  margin: 0 0 14px 0;
   color: var(--muted);
   font-size: 0.95rem;
-  text-align:center;
+  text-align: center;
 }
 
-/* Form - aseguramos toma 100% ancho de la card y apilado vertical */
-#login-form{
-  width:100%;
-  display:flex;
-  flex-direction:column;
+#login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items:stretch;
+  align-items: stretch;
   margin-top: 6px;
 }
 
-#login-form input[type="text"],
-#login-form input[type="password"]{
+#login-form input[type='text'],
+#login-form input[type='password'] {
   height: 46px;
   padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(15,23,42,0.08);
-  background: linear-gradient(180deg,#fff,#fbfdff);
+  border-radius: var(--radius);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #f8fafc;
   outline: none;
   font-size: 1rem;
 }
 
-#login-form input::placeholder{ color: #9aa3b2 }
-
-/* Botón principal del login */
-#login-form button{
-  height: var(--touch-size);
-  border: none;
-  border-radius: 10px;
-  font-weight: 700;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  color: white;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(14,165,233,0.12);
-  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+#login-form input::placeholder {
+  color: #9aa3b2;
 }
 
-#login-form button:active{ transform: translateY(1px) }
-#login-form button:focus{ outline: 3px solid rgba(14,165,233,0.10) }
+#login-form button {
+  height: var(--touch-size);
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 700;
+  background-color: var(--primary);
+  color: white;
+  cursor: pointer;
+  box-shadow: none;
+  transition: transform 0.12s ease;
+}
 
-/* Mensaje de error */
-#login-error{
+#login-form button:active {
+  transform: translateY(1px);
+}
+
+#login-form button:focus {
+  outline: 3px solid rgba(14, 165, 233, 0.1);
+}
+
+#login-error {
   color: var(--danger);
   margin-top: 6px;
   min-height: 18px;
   font-size: 0.95rem;
-  text-align:center;
+  text-align: center;
 }
 
 /* --------- MAIN pantalla --------- */
-#main-screen{
+#main-screen {
   padding: 18px;
 }
 
-/* Header sencillo (el logout es fijo abajo-izquierda) */
-#main-screen header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+#main-screen header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
 }
 
-/* Contenedor actions: botones grandes y centrados */
-.actions{
-  display:flex;
-  gap: 16px;
-  justify-content:center;
-  align-items:center;
+.actions {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
   margin: 28px 0;
-  flex-wrap:wrap;
+  flex-wrap: wrap;
 }
 
-/* Estilos base botón */
-.btn{
-  min-width: 180px;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 1.05rem;
+.btn,
+button[type='submit'] {
+  width: 260px;
+  height: 50px; /* Ancho unificado para todos los botones principales */
+  padding: 16px 26px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.06);
-  transition: transform .12s ease, box-shadow .12s ease;
+  font-weight: 700;
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  box-shadow: none;
+  transition: transform 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-/* Principal y secundario */
-.btn-primary{
-  background: linear-gradient(90deg,var(--accent),var(--primary));
+.btn-primary,
+#submit-registrar {
+  background-color: var(--primary);
   color: white;
-}
-.btn-secondary{
-  background: linear-gradient(90deg,#10b981,#06b6d4);
-  color: white;
+  box-shadow: none;
 }
 
-/* Botón rojo de cerrar sesión fijo abajo-izquierda */
-#logout-btn{
+.btn-secondary {
+  background-color: var(--accent);
+  color: white;
+  box-shadow: none;
+}
+
+.btn-danger {
+  background-color: var(--danger);
+  color: white;
+  box-shadow: none;
+}
+
+.btn:hover,
+button[type='submit']:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active,
+button[type='submit']:active {
+  transform: translateY(0);
+}
+
+#logout-btn {
   position: fixed;
   left: 18px;
   bottom: 18px;
@@ -190,253 +214,279 @@ html,body{
   color: white;
   min-width: 120px;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   border: none;
-  font-weight:700;
-  box-shadow: 0 8px 24px rgba(239,68,68,0.18);
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.18);
 }
 
-/* Contenido principal */
-#content{
+#content {
   margin-top: 12px;
   min-height: 220px;
   border-radius: 12px;
 }
 
-/* Tarjetas de registro */
-.registro{
-  background: white;
-  border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
-  border: 1px solid rgba(15,23,42,0.04);
+h2,
+h3 {
+  margin: 0 0 6px 0;
 }
 
-/* Pequeños ajustes visuales */
-h2, h3 { margin: 0 0 6px 0; }
-p { margin: 4px 0; color: var(--muted) }
+p {
+  margin: 4px 0;
+  color: var(--muted);
+}
 
 /* --------- Responsive: tablet/pc --------- */
 @media (min-width: 600px) {
-  #login-form input[type="text"],
-  #login-form input[type="password"]{ height:50px }
-  #login-form button{ height:52px; font-size:1.05rem }
-  .btn{ min-width: 200px; padding:14px 22px }
+  #login-form input[type='text'],
+  #login-form input[type='password'] {
+    height: 50px;
+  }
+  #login-form button {
+    height: 52px;
+    font-size: 1.05rem;
+  }
 }
 
 @media (min-width: 900px) {
-  #app { padding: 34px }
-  .login-card{ padding: 36px; max-width:520px }
-  .actions{ gap: 20px }
-  .btn{ min-width: 220px; font-size:1.1rem; padding:16px 26px }
+  #app {
+    padding: 34px;
+  }
+  .login-card {
+    padding: 36px;
+    max-width: 520px;
+  }
+  .actions {
+    gap: 20px;
+  }
+  .btn {
+    width: 280px;
+    font-size: 1.1rem;
+    padding: 16px 26px;
+  }
 }
 
-/* Asegurar accesibilidad en focus */
-button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline: none; }
+button:focus,
+input:focus {
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.08);
+  outline: none;
+}
 
-/* Forzar que [hidden] realmente oculte */
-[hidden]{ display:none !important; }
+[hidden] {
+  display: none !important;
+}
 
 /* ------- Header moderno y centrado ------- */
-.main-header{
-  display:flex;
-  align-items:center;
-  justify-content:center; /* centra todo horizontalmente */
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 18px;
   padding: 18px 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.35));
-  border-radius: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
   margin: 6px 0 18px 0;
-  box-shadow: 0 8px 24px rgba(30,58,138,0.05);
-  border: 1px solid rgba(30,58,138,0.06);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(30, 58, 138, 0.06);
 }
 
-/* marca (logo circular + texto) */
-.brand{
-  display:flex;
-  align-items:center;
+.brand {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
-/* texto de marca */
-.brand-text h1{
-  margin:0;
-  font-size:1.25rem;
-  line-height:1;
+.brand-text h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1;
   color: var(--primary);
   letter-spacing: 0.2px;
-  font-weight:800;
+  font-weight: 800;
 }
 
-/* ajustar cuando la pantalla es pequeña: poner logo encima del texto */
-@media (max-width:540px){
-  .main-header{
-    flex-direction:column;
+@media (max-width: 540px) {
+  .main-header {
+    flex-direction: column;
     padding: 14px;
     gap: 10px;
   }
-  .brand-logo{ width:64px; height:64px; font-size:1.15rem }
-  .brand-text h1{ font-size:1.15rem }
+  .brand-logo {
+    width: 64px;
+    height: 64px;
+    font-size: 1.15rem;
+  }
+  .brand-text h1 {
+    font-size: 1.15rem;
+  }
 }
 
-/* ------- Botones: más grandes, redondeados, azules ------- */
-/* Reemplaza reglas .btn, .btn-primary, .btn-secondary si existían */
-.btn{
-  border: none;
-  cursor: pointer;
-  font-weight:800;
-  border-radius: 999px; /* píldora */
-  padding: 16px 28px;
-  min-width: 220px;
-  font-size: 1.05rem;
-  box-shadow: 0 10px 30px rgba(2,6,23,0.08);
-  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-}
-
-/* primary: azul más profundo con gradiente */
-.btn-primary{
-  background: linear-gradient(90deg, #0ea5e9 0%, #1e3a8a 100%);
-  color: white;
-}
-
-/* secondary: azul claro, contrastante */
-.btn-secondary{
-  background: linear-gradient(90deg, #06b6d4 0%, #0ea5e9 100%);
-  color: white;
-}
-
-/* hover / active */
-.btn:hover{ transform: translateY(-2px); box-shadow: 0 18px 40px rgba(2,6,23,0.10) }
-.btn:active{ transform: translateY(0) }
-
-/* tamaño en pantallas grandes */
-@media (min-width:900px){
-  .btn{ min-width: 260px; padding:18px 34px; font-size:1.12rem }
-}
-
-/* aseguramos que .actions siga centrando los botones */
-.actions{ justify-content:center; align-items:center; display:flex; gap:20px; flex-wrap:wrap }
-
-/* mantener logout fijo abajo-izquierda (ya existía) */
-/* Si quieres que el logout quede más pequeño en tablet/pc: */
-#logout-btn{ min-width:140px; padding:12px 16px; border-radius:10px }
-
-/* pequeños tweaks estéticos para que el header "resalte" */
-.main-header::after{
-  content: "";
+.main-header::after {
+  content: '';
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 40px);
   height: 1px;
   margin-top: 78px;
-  background: linear-gradient(90deg, rgba(0,0,0,0.03), rgba(0,0,0,0));
-  pointer-events:none;
-  opacity:0.6;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0));
+  pointer-events: none;
+  opacity: 0.6;
 }
-
-/* para que el header no cruce el contenedor en mobile */
-#app { position: relative }
 
 /* --- Formulario registrar --- */
-.vehiculo-form {
+.registro-card {
   max-width: 600px;
   margin: 20px auto;
-  background: #fdfdfd;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-.vehiculo-form h2, .vehiculo-form h3 {
-  margin-top: 15px;
-  margin-bottom: 10px;
-  color: #004080;
-}
-.vehiculo-form input,
-.vehiculo-form textarea {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-.vehiculo-form textarea {
-  resize: vertical;
+  background: var(--card);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(30, 58, 138, 0.04);
 }
 
-.photo-section {
-  margin: 15px 0;
+.registro-card h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: var(--primary);
 }
-.upload-btn {
-  display: inline-block;
+
+fieldset {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+legend {
+  font-weight: 700;
+  color: var(--primary);
+  padding: 0 8px;
+}
+
+.registro-card input[type='text'],
+.registro-card input[type='number'],
+.registro-card input[type='tel'],
+.registro-card textarea {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius);
+  background: #f8fafc;
+  outline: none;
+  font-size: 1rem;
+}
+
+.registro-card input:focus,
+.registro-card textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: var(--radius);
+}
+
+.check-grid label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.foto-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.btn-foto {
+  background-color: var(--primary);
+  color: white;
+  border: none;
   font-size: 24px;
-  font-weight: bold;
   width: 40px;
   height: 40px;
-  line-height: 36px;
-  text-align: center;
-  background: #007bff;
-  color: white;
-  border-radius: 50%;
+  border-radius: var(--radius);
   cursor: pointer;
-  margin-bottom: 10px;
 }
+
+.preview {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .preview img {
   max-width: 120px;
-  margin: 5px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  border-radius: var(--radius);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-.checklist {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin: 10px 0;
+.signature-wrap {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow: hidden;
 }
 
-#firma_canvas {
-  margin-top: 10px;
-  margin-bottom: 10px;
+#signature-pad {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius);
+  background: #fdfdfd;
+}
+
+#clear-sign {
+  background: #e2e8f0;
+  color: #333;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 /* ---------- New: registros hover, modal, disabled/despachado ---------- */
+.list-container {
+  padding: 12px; /* Reducción de padding en el contenedor de la lista */
+  max-width: 980px;
+  margin: 18px auto;
+  display: grid;
+  gap: 12px; /* Reducción de gap entre registros */
+}
 
-/* tarjetas de lista */
 .registro {
-  background: #fff;
-  padding: 14px;
-  border-radius: 10px;
-  margin: 8px 0;
-  box-shadow: 0 6px 18px rgba(10,20,40,0.06);
-  transition: transform .12s ease, box-shadow .12s ease, opacity .12s;
+  background: #ffffff;
+  height: 120px;
+  padding: 12px; /* Reducción de padding interno */
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(10, 20, 40, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s;
   cursor: pointer;
 }
+
 .registro:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 26px rgba(10,20,40,0.12);
+  box-shadow: 0 12px 26px rgba(10, 20, 40, 0.12);
 }
 
-/* estado despachado (gris) */
 .registro.despachado {
   opacity: 0.55;
   filter: grayscale(0.3);
-  pointer-events: auto; /* sigue siendo clickeable para ver, pero aparece inactivo */
+  pointer-events: auto;
 }
 
-/* contenedor lista más espacioso */
-.list-container {
-  padding: 18px;
-  max-width: 980px;
-  margin: 18px auto;
-}
-
-/* modal */
 .modal {
   position: fixed;
   inset: 0;
@@ -445,14 +495,18 @@ button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline
   justify-content: center;
   z-index: 9999;
 }
-.modal[aria-hidden="false"] { display: flex; }
+
+.modal[aria-hidden='false'] {
+  display: flex;
+}
 
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(6,10,20,0.45);
+  background: rgba(6, 10, 20, 0.45);
   backdrop-filter: blur(2px);
 }
+
 .modal-panel {
   position: relative;
   width: 95%;
@@ -460,11 +514,12 @@ button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline
   max-height: 90vh;
   overflow: auto;
   background: #fff;
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 18px;
-  box-shadow: 0 20px 50px rgba(4,10,30,0.3);
+  box-shadow: 0 20px 50px rgba(4, 10, 30, 0.3);
   z-index: 2;
 }
+
 .modal-close {
   position: absolute;
   right: 10px;
@@ -475,31 +530,96 @@ button:focus, input:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline
   cursor: pointer;
 }
 
-/* modal content layout */
-.modal-body .row { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; }
-.modal-body label { font-weight:600; font-size:0.85rem; color: #111827; margin-bottom:4px; display:block; }
-.modal-body input[readonly], .modal-body textarea[readonly] {
-  background: #f8fafc;
-  border: 1px solid rgba(15,23,42,0.06);
-  padding:8px;
-  border-radius:6px;
-  width:100%;
+.modal-body .row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
-.modal-body textarea { min-height:100px; resize:vertical; }
 
-/* botones modal */
-.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
-.btn-danger { background: #ef4444; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-.btn-warning { background: #f59e0b; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-.btn-primary { background: #2563eb; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-.btn[disabled] { opacity:0.6; cursor:not-allowed; }
+.modal-body label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #111827;
+  margin-bottom: 4px;
+  display: block;
+}
 
-/* fotos dentro modal */
-.modal-preview { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-.modal-preview img { width:120px; height:80px; object-fit:cover; border-radius:8px; border:1px solid rgba(0,0,0,0.06); }
+.modal-body input[readonly],
+.modal-body textarea[readonly] {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 8px;
+  border-radius: var(--radius);
+  width: 100%;
+}
 
-/* responsive */
-@media (max-width:720px) {
-  .modal-panel { padding:12px; width:96%; max-width:720px; }
-  .modal-body .row { flex-direction:column; }
+.modal-body textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.btn-danger,
+.btn-warning,
+.btn-primary {
+  border-radius: var(--radius);
+  box-shadow: none;
+  border: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-preview {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.modal-preview img {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 720px) {
+  .modal-panel {
+    padding: 12px;
+    width: 96%;
+    max-width: 720px;
+  }
+  .modal-body .row {
+    flex-direction: column;
+  }
 }

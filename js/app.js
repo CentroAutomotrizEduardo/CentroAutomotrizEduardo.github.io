@@ -452,7 +452,7 @@ function showLoginScreen() {
 }
 
 // ------------------------
-// Búsqueda por placa y teléfono
+// Función para buscar por placa (MODIFICADO para incluir ID)
 // ------------------------
 async function buscarPorPlaca(placa) {
   if (!placa) return null
@@ -460,7 +460,7 @@ async function buscarPorPlaca(placa) {
     const placaTrim = placa.trim()
     const { data, error } = await supabase
       .from('vehiculos')
-      .select('marca,modelo,color,placa,kilometraje,cliente_id')
+      .select('id,marca,modelo,color,placa,kilometraje,cliente_id')
       .ilike('placa', placaTrim)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -477,6 +477,9 @@ async function buscarPorPlaca(placa) {
   }
 }
 
+// ------------------------
+// Función para buscar por teléfono (MODIFICADO para incluir ID)
+// ------------------------
 async function buscarPorTelefono(telefono) {
   if (!telefono) return null
   try {
@@ -501,7 +504,7 @@ async function buscarPorTelefono(telefono) {
 }
 
 // ------------------------
-// Formulario Registrar + firma + subida + submit
+// Formulario Registrar + firma + subida + submit (MODIFICADO)
 // ------------------------
 function renderRegistrarForm() {
   const content = document.getElementById("content")
@@ -541,20 +544,59 @@ function renderRegistrarForm() {
 
         <fieldset>
           <legend>Checklist</legend>
-          <div class="check-grid">
-            <label><input type="checkbox" name="check" value="bocinas"> Bocinas</label>
-            <label><input type="checkbox" name="check" value="aire_acondicionado"> Aire acondicionado</label>
-            <label><input type="checkbox" name="check" value="radio"> Radio</label>
-            <label><input type="checkbox" name="check" value="limpia_vidrios"> Limpia vidrios</label>
-            <label><input type="checkbox" name="check" value="goma_repuesto"> Goma de repuesto</label>
-            <label><input type="checkbox" name="check" value="llave_rueda"> Llave de rueda</label>
-            <label><input type="checkbox" name="check" value="antenas"> Antenas</label>
-            <label><input type="checkbox" name="check" value="alfombras"> Alfombras</label>
-            <label><input type="checkbox" name="check" value="tapiceria"> Tapicería</label>
-            <label><input type="checkbox" name="check" value="guardalodo"> Guardalodo</label>
-            <label><input type="checkbox" name="check" value="ribete"> Ribete</label>
-            <label><input type="checkbox" name="check" value="espejos"> Espejos</label>
-            <label><input type="checkbox" name="check" value="documentos"> Documentos</label>
+          <div class="check-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;">
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Bocinas</span>
+              <input type="checkbox" name="check" value="bocinas">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Aire acondicionado</span>
+              <input type="checkbox" name="check" value="aire_acondicionado">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Radio</span>
+              <input type="checkbox" name="check" value="radio">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Limpia vidrios</span>
+              <input type="checkbox" name="check" value="limpia_vidrios">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Goma de repuesto</span>
+              <input type="checkbox" name="check" value="goma_repuesto">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Llave de rueda</span>
+              <input type="checkbox" name="check" value="llave_rueda">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Antenas</span>
+              <input type="checkbox" name="check" value="antenas">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Alfombras</span>
+              <input type="checkbox" name="check" value="alfombras">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Tapicería</span>
+              <input type="checkbox" name="check" value="tapiceria">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Guardalodo</span>
+              <input type="checkbox" name="check" value="guardalodo">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Ribete</span>
+              <input type="checkbox" name="check" value="ribete">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Espejos</span>
+              <input type="checkbox" name="check" value="espejos">
+            </label>
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Documentos</span>
+              <input type="checkbox" name="check" value="documentos">
+            </label>
           </div>
         </fieldset>
 
@@ -1014,6 +1056,9 @@ async function openRegistroModal(registro) {
   openModal()
 }
 
+// ------------------------
+// Modal render content (MODIFICADO para checkboxes con mismo estilo)
+// ------------------------
 function renderModalContent(registro, cliente) {
   const body = document.getElementById('modal-body')
   if (!body) return
@@ -1027,6 +1072,26 @@ function renderModalContent(registro, cliente) {
   // fotos: soporta array de strings o array de objects {path, name, publicUrl}
   const photos = veh.photos || []
   const tablero = veh.tablero_photo_path || veh.tableroPath || ''
+
+  // procesar checklist para mostrar checkboxes
+  const checklist = veh.checklist || {}
+  const checkboxItems = [
+    'bocinas', 'aire_acondicionado', 'radio', 'limpia_vidrios', 'goma_repuesto', 
+    'llave_rueda', 'antenas', 'alfombras', 'tapiceria', 'guardalodo', 'ribete', 'espejos', 'documentos'
+  ]
+
+  const checkboxHtml = checkboxItems.map(item => {
+    const checked = checklist[item] ? 'checked' : ''
+    const label = item.replace(/_/g, ' ').split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ')
+    return `
+      <label style="display: flex; justify-content: space-between; align-items: center;">
+        <span>${label}</span>
+        <input type="checkbox" name="check" value="${item}" ${checked} disabled>
+      </label>
+    `
+  }).join('')
 
   body.innerHTML = `
     <div class="modal-body">
@@ -1071,7 +1136,9 @@ function renderModalContent(registro, cliente) {
       <div class="row">
         <div style="flex:1 1 100%">
           <label>Checklist</label>
-          <textarea readonly id="m_checklist">${escapeHtml(JSON.stringify(veh.checklist || {} , null, 2))}</textarea>
+          <div class="check-grid" id="m_checklist" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; background: #f8fafc; padding: 12px; border-radius: 8px;">
+            ${checkboxHtml}
+          </div>
         </div>
       </div>
 
@@ -1170,7 +1237,7 @@ function renderModalContent(registro, cliente) {
     }
   }
 
-  // boton guardar: recoger campos y actualizar
+  // boton guardar: recoger campos y actualizar (incluyendo checklist)
   if (btnSave) {
     btnSave.onclick = async () => {
       try {
@@ -1183,13 +1250,22 @@ function renderModalContent(registro, cliente) {
           telefono: (document.getElementById('m_cliente_telefono')?.value || '').trim(),
           direccion: (document.getElementById('m_cliente_direccion')?.value || '').trim()
         }
+
+        // recoger checklist del modal
+        const checklistData = {}
+        const checkboxes = document.querySelectorAll('#m_checklist input[type="checkbox"]')
+        checkboxes.forEach(cb => {
+          checklistData[cb.value] = cb.checked
+        })
+
         const updatedVeh = {
           marca: (document.getElementById('m_veh_marca')?.value || '').trim(),
           modelo: (document.getElementById('m_veh_modelo')?.value || '').trim(),
           color: (document.getElementById('m_veh_color')?.value || '').trim(),
           placa: (document.getElementById('m_veh_placa')?.value || '').trim(),
           kilometraje: parseInt(document.getElementById('m_veh_km')?.value || 0, 10),
-          trabajo: (document.getElementById('m_trabajo')?.value || '').trim()
+          trabajo: (document.getElementById('m_trabajo')?.value || '').trim(),
+          checklist: checklistData
         }
 
         if (cliId) {
@@ -1266,9 +1342,13 @@ function renderModalContent(registro, cliente) {
   }
 }
 
-// toggle inputs readonly state
+// ------------------------
+// toggle inputs readonly state (MODIFICADO para checkboxes)
+// ------------------------
 function toggleModalEditable(editable) {
-  const inputs = document.querySelectorAll('#modal-body input, #modal-body textarea')
+  const inputs = document.querySelectorAll('#modal-body input:not([type="checkbox"]), #modal-body textarea')
+  const checkboxes = document.querySelectorAll('#modal-body input[type="checkbox"]')
+  
   inputs.forEach(inp => {
     if (editable) {
       inp.removeAttribute('readonly')
@@ -1280,6 +1360,23 @@ function toggleModalEditable(editable) {
       inp.style.background = '#f8fafc'
     }
   })
+
+  // manejar checkboxes por separado
+  checkboxes.forEach(cb => {
+    cb.disabled = !editable
+  })
+
+  // cambiar estilo del contenedor de checklist
+  const checklistContainer = document.getElementById('m_checklist')
+  if (checklistContainer) {
+    if (editable) {
+      checklistContainer.style.background = '#fff'
+      checklistContainer.style.border = '1px solid #e2e8f0'
+    } else {
+      checklistContainer.style.background = '#f8fafc'
+      checklistContainer.style.border = 'none'
+    }
+  }
 }
 
 // escape simple helper to avoid HTML injection in values
