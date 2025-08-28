@@ -50,6 +50,35 @@ async function login(usuario, contrasena) {
 window.login = login // opcional, por compatibilidad
 
 // ------------------------
+// Security helper: verify password for current logged user
+// ------------------------
+async function verifyPassword(plainPassword) {
+  try {
+    const usuario = localStorage.getItem("usuario")
+    if (!usuario) return false
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('usuario', usuario)
+      .eq('contrasena', plainPassword)
+      .single()
+    if (error || !data) return false
+    return true
+  } catch (err) {
+    console.error('verifyPassword error', err)
+    return false
+  }
+}
+
+async function promptPasswordAndVerify() {
+  const pwd = window.prompt("Ingresa tu contraseña para confirmar:")
+  if (!pwd) return false
+  const ok = await verifyPassword(pwd)
+  if (!ok) alert('Contraseña incorrecta')
+  return ok
+}
+
+// ------------------------
 // Storage helpers
 // ------------------------
 // Reemplaza tu uploadFiles por esta versión mejorada
@@ -109,8 +138,6 @@ async function uploadFiles(vehiculoId, files, { upsert = false } = {}) {
 
   return uploaded
 }
-
-
 
 // ------------------------
 // CRUD vehiculos/clientes (ajustado a tu esquema)
@@ -182,6 +209,41 @@ async function crearRegistroCompleto(input) {
   }
 }
 
+// update cliente / vehiculo
+async function updateCliente(id, payload) {
+  try {
+    const { data, error } = await supabase.from('clientes').update(payload).eq('id', id).select().single()
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('updateCliente error', err)
+    throw err
+  }
+}
+async function updateVehiculo(id, payload) {
+  try {
+    const { data, error } = await supabase.from('vehiculos').update(payload).eq('id', id).select().single()
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('updateVehiculo error', err)
+    throw err
+  }
+}
+
+// borrar vehiculo
+async function deleteVehiculo(id) {
+  try {
+    const { data, error } = await supabase.from('vehiculos').delete().eq('id', id)
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('deleteVehiculo error', err)
+    throw err
+  }
+}
+
+// ------------------------
 // Versión básica listar vehiculos (fallback incluido para traer clientes)
 async function listarRegistros() {
   try {
@@ -242,21 +304,37 @@ async function cargarRegistros() {
       const modelo = r.modelo || r.vehiculo_modelo || ''
       const placa = r.placa || r.vehiculo_placa || '—'
       const km = r.kilometraje ?? r.vehiculo_kilometraje ?? '—'
+      const fecha = r.created_at ? new Date(r.created_at).toLocaleString() : ''
 
       const div = document.createElement("div")
       div.className = "registro"
+      if (r.status === 'despachado') div.classList.add('despachado')
+      div.dataset.id = r.id
+      // Guardar registro completo como dataset (stringify) para abrir modal sin nueva fetch (podemos fallback a fetch si es enorme)
+      div.dataset.record = JSON.stringify(r)
       div.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
           <div>
-            <h3>${nombreCliente} — ${marca} ${modelo}</h3>
-            <p>Placa: ${placa} · KM: ${km}</p>
-            <p style="color:var(--muted)">Tel: ${telefonoCliente}</p>
+            <h3 style="margin:0">${escapeHtml(nombreCliente)} — ${escapeHtml(marca)} ${escapeHtml(modelo)}</h3>
+            <p style="margin:4px 0">Placa: ${escapeHtml(placa)} · KM: ${escapeHtml(String(km))}</p>
+            <p style="margin:0;color:var(--muted)">Tel: ${escapeHtml(telefonoCliente)}</p>
           </div>
           <div style="text-align:right; font-size:0.9rem; color:var(--muted)">
-            ${r.created_at ? new Date(r.created_at).toLocaleString() : ''}
+            ${escapeHtml(fecha)}
           </div>
         </div>
       `
+      // hover cursor
+      div.style.cursor = 'pointer'
+      // click abre modal con detalle
+      div.addEventListener('click', () => {
+        // preferir usar el objeto almacenado, si existe
+        let registroObj = null
+        try {
+          registroObj = JSON.parse(div.dataset.record)
+        } catch (e) { registroObj = r }
+        openRegistroModal(registroObj)
+      })
       contenedor.appendChild(div)
     })
   } catch (err) {
@@ -880,6 +958,342 @@ function collectChecklist() {
 }
 
 // ------------------------
+// MODAL / VER registros (abrir, editar, despachar, borrar)
+// ------------------------
+
+function openModal() {
+  const modal = document.getElementById('modal')
+  if (!modal) return
+  modal.setAttribute('aria-hidden', 'false')
+  document.body.style.overflow = 'hidden'
+}
+
+function closeModal() {
+  const modal = document.getElementById('modal')
+  if (!modal) return
+  modal.setAttribute('aria-hidden', 'true')
+  document.body.style.overflow = ''
+  const logoutBtn = document.getElementById("logout-btn")
+  if (logoutBtn) logoutBtn.style.display = 'inline-block'
+}
+
+// cerrar modal al click backdrop o botón close
+document.addEventListener('click', (e) => {
+  if (!e.target) return
+  if (e.target.id === 'modal-backdrop' || e.target.id === 'modal-close') {
+    closeModal()
+  }
+})
+
+async function openRegistroModal(registro) {
+  // ocultar logout mientras modal abierto
+  const logoutBtn = document.getElementById("logout-btn")
+  if (logoutBtn) logoutBtn.style.display = 'none'
+
+  // Asegúrate de tener el registro completo: si el objeto no contiene fotos o cliente, intenta recargarlo
+  let r = registro
+  if (!r || !r.id) {
+    alert('Registro inválido')
+    return
+  }
+
+  // Si no trae cliente completo y trae cliente_id, cargar cliente
+  let cliente = null
+  if (r.clientes) {
+    cliente = Array.isArray(r.clientes) ? r.clientes[0] : r.clientes
+  } else if (r.cliente) {
+    cliente = r.cliente
+  } else if (r.cliente_id) {
+    try {
+      const { data } = await supabase.from('clientes').select('*').eq('id', r.cliente_id).single()
+      cliente = data
+    } catch (e) { console.warn('no se pudo cargar cliente', e) }
+  }
+
+  renderModalContent(r, cliente)
+  openModal()
+}
+
+function renderModalContent(registro, cliente) {
+  const body = document.getElementById('modal-body')
+  if (!body) return
+
+  // normalizar campos posibles
+  const veh = registro || {}
+  const nombreCliente = cliente ? (cliente.nombre || '') : (registro.cliente_nombre || '')
+  const telefonoCliente = cliente ? (cliente.telefono || '') : (registro.cliente_telefono || '')
+  const direccionCliente = cliente ? (cliente.direccion || '') : ''
+
+  // fotos: soporta array de strings o array de objects {path, name, publicUrl}
+  const photos = veh.photos || []
+  const tablero = veh.tablero_photo_path || veh.tableroPath || ''
+
+  body.innerHTML = `
+    <div class="modal-body">
+      <div class="row">
+        <div style="flex:1 1 220px">
+          <label>Cliente</label>
+          <input readonly id="m_cliente_nombre" value="${escapeHtml(nombreCliente)}" />
+        </div>
+        <div style="flex:1 1 160px">
+          <label>Teléfono</label>
+          <input readonly id="m_cliente_telefono" value="${escapeHtml(telefonoCliente)}" />
+        </div>
+        <div style="flex:1 1 240px">
+          <label>Dirección</label>
+          <input readonly id="m_cliente_direccion" value="${escapeHtml(direccionCliente)}" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 160px">
+          <label>Marca</label>
+          <input readonly id="m_veh_marca" value="${escapeHtml(veh.marca || veh.vehiculo_marca || '')}" />
+        </div>
+        <div style="flex:1 1 160px">
+          <label>Modelo</label>
+          <input readonly id="m_veh_modelo" value="${escapeHtml(veh.modelo || veh.vehiculo_modelo || '')}" />
+        </div>
+        <div style="flex:1 1 120px">
+          <label>Color</label>
+          <input readonly id="m_veh_color" value="${escapeHtml(veh.color || veh.vehiculo_color || '')}" />
+        </div>
+        <div style="flex:1 1 120px">
+          <label>Placa</label>
+          <input readonly id="m_veh_placa" value="${escapeHtml(veh.placa || veh.vehiculo_placa || '')}" />
+        </div>
+        <div style="flex:1 1 120px">
+          <label>Kilometraje</label>
+          <input readonly id="m_veh_km" value="${escapeHtml(String(veh.kilometraje ?? veh.vehiculo_kilometraje ?? ''))}" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 100%">
+          <label>Checklist</label>
+          <textarea readonly id="m_checklist">${escapeHtml(JSON.stringify(veh.checklist || {} , null, 2))}</textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 100%">
+          <label>Trabajo a realizar</label>
+          <textarea readonly id="m_trabajo">${escapeHtml(veh.trabajo || '')}</textarea>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 50%">
+          <label>Foto tablero</label>
+          <div id="m_preview_tablero" class="modal-preview"></div>
+        </div>
+        <div style="flex:1 1 50%">
+          <label>Fotos vehículo</label>
+          <div id="m_preview_vehiculo" class="modal-preview"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1 1 100%; color:var(--muted); font-size:0.9rem">
+          <label>Creado</label>
+          <div>${veh.created_at ? new Date(veh.created_at).toLocaleString() : ''}</div>
+        </div>
+      </div>
+    </div>
+  `
+
+  // renderizar fotos (intenta obtener public url si photos es array de rutas o de objects)
+  const previewTab = document.getElementById('m_preview_tablero')
+  const previewVeh = document.getElementById('m_preview_vehiculo')
+  if (previewTab) previewTab.innerHTML = ''
+  if (previewVeh) previewVeh.innerHTML = ''
+
+  // helper para generar url pública si es posible
+  const bucket = 'vehiculos-photos'
+  const addImg = (container, pathOrObj) => {
+    if (!container) return
+    const img = document.createElement('img')
+    let src = ''
+    if (!pathOrObj) return
+    if (typeof pathOrObj === 'string') {
+      try {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(pathOrObj)
+        src = data?.publicUrl || data?.publicURL || ''
+      } catch (e) { src = '' }
+    } else if (pathOrObj && pathOrObj.path) {
+      try {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(pathOrObj.path)
+        src = data?.publicUrl || data?.publicURL || ''
+      } catch(e) { src = '' }
+    }
+    img.src = src || ''
+    img.alt = pathOrObj.name || pathOrObj.path || 'foto'
+    container.appendChild(img)
+  }
+
+  if (tablero) {
+    addImg(previewTab, tablero)
+  }
+  if (Array.isArray(photos) && photos.length) {
+    photos.forEach(p => addImg(previewVeh, p))
+  }
+
+  // configurar botones modal (edit, save, despachar, delete)
+  const btnEdit = document.getElementById('btn-modal-edit')
+  const btnSave = document.getElementById('btn-modal-save')
+  const btnDesp = document.getElementById('btn-modal-despachar')
+  const btnDel = document.getElementById('btn-modal-delete')
+
+  // guardar registro id y cliente id en data-attributes para referencias
+  const modalPanel = document.querySelector('.modal-panel')
+  if (modalPanel) {
+    modalPanel.dataset.vehId = registro.id || ''
+    modalPanel.dataset.clienteId = registro.cliente_id || (cliente ? (cliente.id || '') : '')
+  }
+
+  // estado editable
+  let isEditing = false
+
+  // asegurar visibilidad inicial
+  if (btnSave) btnSave.style.display = 'none'
+  if (btnEdit) btnEdit.style.display = 'inline-block'
+
+  // boton editar: pedir contraseña, activar edición
+  if (btnEdit) {
+    btnEdit.onclick = async () => {
+      const ok = await promptPasswordAndVerify()
+      if (!ok) return
+      toggleModalEditable(true)
+      isEditing = true
+      btnEdit.style.display = 'none'
+      if (btnSave) btnSave.style.display = 'inline-block'
+    }
+  }
+
+  // boton guardar: recoger campos y actualizar
+  if (btnSave) {
+    btnSave.onclick = async () => {
+      try {
+        btnSave.disabled = true
+        const vehId = modalPanel?.dataset?.vehId
+        const cliId = modalPanel?.dataset?.clienteId || null
+
+        const updatedCliente = {
+          nombre: (document.getElementById('m_cliente_nombre')?.value || '').trim(),
+          telefono: (document.getElementById('m_cliente_telefono')?.value || '').trim(),
+          direccion: (document.getElementById('m_cliente_direccion')?.value || '').trim()
+        }
+        const updatedVeh = {
+          marca: (document.getElementById('m_veh_marca')?.value || '').trim(),
+          modelo: (document.getElementById('m_veh_modelo')?.value || '').trim(),
+          color: (document.getElementById('m_veh_color')?.value || '').trim(),
+          placa: (document.getElementById('m_veh_placa')?.value || '').trim(),
+          kilometraje: parseInt(document.getElementById('m_veh_km')?.value || 0, 10),
+          trabajo: (document.getElementById('m_trabajo')?.value || '').trim()
+        }
+
+        if (cliId) {
+          await updateCliente(cliId, updatedCliente)
+          await updateVehiculo(vehId, updatedVeh)
+        } else {
+          // crear cliente nuevo y asociar
+          const newCli = await crearCliente(updatedCliente)
+          await updateVehiculo(vehId, { cliente_id: newCli.id, ...updatedVeh })
+        }
+
+        alert('Cambios guardados correctamente')
+        toggleModalEditable(false)
+        btnSave.style.display = 'none'
+        if (btnEdit) btnEdit.style.display = 'inline-block'
+        await cargarRegistros()
+      } catch (err) {
+        console.error('Error guardando cambios', err)
+        alert('Error al guardar cambios')
+      } finally {
+        if (btnSave) btnSave.disabled = false
+      }
+    }
+  }
+
+  // despachar -> pedir password -> marcar status 'despachado'
+  if (btnDesp) {
+    btnDesp.onclick = async () => {
+      const ok = await promptPasswordAndVerify()
+      if (!ok) return
+      try {
+        btnDesp.disabled = true
+        const vehId = registro.id
+        await updateVehiculo(vehId, { status: 'despachado' })
+        alert('Registro marcado como despachado')
+        closeModal()
+        await cargarRegistros()
+      } catch (err) {
+        console.error('Error despachando', err)
+        alert('Error al despachar')
+      } finally {
+        btnDesp.disabled = false
+      }
+    }
+  }
+
+  // borrar -> pedir password -> eliminar
+  if (btnDel) {
+    btnDel.onclick = async () => {
+      const ok = await promptPasswordAndVerify()
+      if (!ok) return
+      if (!confirm('¿Seguro que deseas borrar este registro? Esta acción no se puede deshacer.')) return
+      try {
+        btnDel.disabled = true
+        const vehId = registro.id
+        await deleteVehiculo(vehId)
+        alert('Registro eliminado')
+        closeModal()
+        await cargarRegistros()
+      } catch (err) {
+        console.error('Error borrando registro', err)
+        alert('Error al borrar registro')
+      } finally {
+        btnDel.disabled = false
+      }
+    }
+  }
+
+  // Si ya está despachado, deshabilitar despachar
+  if (registro.status === 'despachado' && btnDesp) {
+    btnDesp.disabled = true
+  } else if (btnDesp) {
+    btnDesp.disabled = false
+  }
+}
+
+// toggle inputs readonly state
+function toggleModalEditable(editable) {
+  const inputs = document.querySelectorAll('#modal-body input, #modal-body textarea')
+  inputs.forEach(inp => {
+    if (editable) {
+      inp.removeAttribute('readonly')
+      inp.style.background = '#fff'
+      // si es textarea, ampliar un poco
+      if (inp.tagName.toLowerCase() === 'textarea') inp.style.minHeight = '80px'
+    } else {
+      inp.setAttribute('readonly', 'readonly')
+      inp.style.background = '#f8fafc'
+    }
+  })
+}
+
+// escape simple helper to avoid HTML injection in values
+function escapeHtml(str) {
+  if (str === null || str === undefined) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+// ------------------------
 // INITIALIZACIÓN: DOMContentLoaded
 // ------------------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -907,6 +1321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return
       }
       await login(usuario, contrasena)
+      // mostrar logout si login exitoso (se maneja en showMainScreen)
     })
   } else {
     console.warn("No se encontró #login-form en el DOM")
@@ -956,6 +1371,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.warn("Realtime: no se pudo subscribir", err)
   }
+
+  // attach listeners adicionales (modal close btn id might be present)
+  const modalClose = document.getElementById('modal-close')
+  if (modalClose) modalClose.addEventListener('click', closeModal)
 
   try { attachMainListeners() } catch (err) { console.warn("attachMainListeners fallo:", err) }
 })

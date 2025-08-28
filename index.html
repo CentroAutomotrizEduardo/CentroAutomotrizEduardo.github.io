@@ -10,21 +10,21 @@
   <div id="app">
     <!-- LOGIN -->
     <section id="login-screen">
-        <div class="login-card">
-            <h1>Iniciar sesión</h1>
-            <p class="subtitle">Accede con tu usuario</p>
+      <div class="login-card">
+        <h1>Iniciar sesión</h1>
+        <p class="subtitle">Accede con tu usuario</p>
 
-            <form id="login-form">
-                <input type="text" id="usuario" placeholder="Usuario">
-                <input type="password" id="contrasena" placeholder="Contraseña">
-                <button type="submit">Entrar</button>
-            </form>
+        <form id="login-form">
+          <input type="text" id="usuario" placeholder="Usuario">
+          <input type="password" id="contrasena" placeholder="Contraseña">
+          <button type="submit">Entrar</button>
+        </form>
 
-            <div id="login-error" role="alert"></div>
-        </div>
+        <div id="login-error" role="alert"></div>
+      </div>
     </section>
 
-    <!-- MAIN (importante: envoltorio con id="main-screen") -->
+    <!-- MAIN -->
     <section id="main-screen" hidden>
       <header class="main-header">
         <div class="brand">
@@ -32,7 +32,7 @@
             <h1>Centro Automotriz Eduardo</h1>
           </div>
         </div>
-        <div class="header-right" aria-hidden="true"></div>
+        <button id="logout-btn" class="logout">Cerrar sesión</button>
       </header>
 
       <div class="actions">
@@ -40,11 +40,26 @@
         <button id="btn-ver" class="btn btn-secondary">Ver registros</button>
       </div>
 
-      <main id="content"></main>
-
-      <!-- logout está fuera del header para que sea fijo abajo-izquierda -->
-      <button id="logout-btn">Cerrar sesión</button>
+      <main id="content" class="list-container"></main>
     </section>
+  </div>
+
+  <!-- MODAL (ver / editar registro) -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" title="Cerrar">&times;</button>
+      <h2 id="modal-title">Detalle del registro</h2>
+
+      <div id="modal-body"></div>
+
+      <div class="modal-actions">
+        <button id="btn-modal-edit" class="btn btn-primary">Editar</button>
+        <button id="btn-modal-save" class="btn btn-primary" style="display:none">Guardar</button>
+        <button id="btn-modal-despachar" class="btn btn-warning">Despachar</button>
+        <button id="btn-modal-delete" class="btn btn-danger">Borrar</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/app.js"></script>
