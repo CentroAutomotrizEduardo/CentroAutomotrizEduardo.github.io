@@ -13,6 +13,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 let selectedTableroFiles = []
 let selectedFotosFiles = []
 
+
+// ------------------------
+// CONSTANTE BUCKET (por si no está definida)
+// ------------------------
+if (typeof BUCKET === 'undefined') {
+  const BUCKET = 'vehiculos-photos'
+  // Si prefieres que sea una variable global re-asignable, podrías usar window.BUCKET = 'vehiculos-photos'
+  window.BUCKET = BUCKET
+}
+
+
 // ------------------------
 // FUNCIONES PRINCIPALES
 // ------------------------
@@ -79,6 +90,35 @@ async function promptPasswordAndVerify() {
 }
 
 // ------------------------
+// Asignar el primer "cono" libre (1,2,3...) entre vehiculos activos
+// ------------------------
+async function assignCono() {
+  // busca todos los conos asignados a vehiculos que NO estén despachados
+  try {
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .select('cono')
+      .neq('status', 'despachado') // solo activos ocupando conos
+    if (error) {
+      console.warn('assignCono: error al obtener conos', error)
+      // fallback: asignar 1 si falla
+      return 1
+    }
+    const used = (data || []).map(r => Number(r.cono)).filter(n => Number.isFinite(n) && n > 0).sort((a,b)=>a-b)
+    // encontrar el primer entero positivo no usado
+    let expected = 1
+    for (const n of used) {
+      if (n === expected) expected++
+      else if (n > expected) break
+    }
+    return expected
+  } catch (err) {
+    console.error('assignCono exception', err)
+    return 1
+  }
+}
+
+// ------------------------
 // Storage helpers
 // ------------------------
 // Reemplaza tu uploadFiles por esta versión mejorada
@@ -140,6 +180,27 @@ async function uploadFiles(vehiculoId, files, { upsert = false } = {}) {
 }
 
 // ------------------------
+// getPublicUrlSync (robusto)
+// ------------------------
+function getPublicUrlSync(path, bucket = BUCKET) {
+  if (!path) return null;
+  try {
+    // soporta recibir { path } u objeto con publicUrl
+    if (typeof path === 'object') {
+      if (path.publicUrl) return path.publicUrl;
+      if (path.path) path = path.path;
+    }
+    const res = supabase.storage.from(bucket).getPublicUrl(path);
+    // la SDK devuelve { data: { publicUrl } } o similar
+    return res?.data?.publicUrl || res?.data?.publicURL || null;
+  } catch (e) {
+    console.warn('getPublicUrlSync error', e);
+    return null;
+  }
+}
+
+
+// ------------------------
 // CRUD vehiculos/clientes (ajustado a tu esquema)
 // ------------------------
 async function crearCliente({ nombre, telefono, direccion }) {
@@ -172,17 +233,31 @@ async function crearVehiculo(payload) {
   }
 }
 
+// ------------------------
+// CREAR REGISTRO COMPLETO (modificado para asignar cono automáticamente)
+// ------------------------
 async function crearRegistroCompleto(input) {
   try {
-    // Si el input trae cliente_id (cuando reusamos cliente), usamos eso
+    // resolver / crear cliente
     let cliente = null
     if (input.cliente_id) {
-      // obtener cliente por id
-      const { data, error } = await supabase.from('clientes').select('*').eq('id', input.cliente_id).single()
-      if (error) throw error
-      cliente = data
+      const { data: clienteData, error: clienteErr } = await supabase.from('clientes').select('*').eq('id', input.cliente_id).single()
+      if (clienteErr) throw clienteErr
+      cliente = clienteData
     } else {
       cliente = await crearCliente(input.cliente)
+    }
+
+    // asignar cono disponible (solo si el payload no viene con uno)
+    let assignedCono = null
+    if (!input.vehiculo.cono) {
+      try {
+        assignedCono = await assignCono()
+      } catch (e) {
+        console.warn('crearRegistroCompleto: no se pudo asignar cono, continúa sin cono', e)
+      }
+    } else {
+      assignedCono = input.vehiculo.cono
     }
 
     const payloadVehiculo = {
@@ -191,20 +266,21 @@ async function crearRegistroCompleto(input) {
       modelo: input.vehiculo.modelo || null,
       color: input.vehiculo.color || null,
       placa: input.vehiculo.placa || null,
-      kilometraje: input.vehiculo.kilometraje || null,
+      kilometraje: input.vehiculo.kilometraje ?? null,
       checklist: input.vehiculo.checklist || {},
       tablero_photo_path: input.vehiculo.tableroPath || null,
       photos: input.vehiculo.photos || [],
       trabajo: input.vehiculo.trabajo || null,
       firma_path: input.vehiculo.firmaPath || null,
       clausula: input.vehiculo.clausula || null,
-      status: input.vehiculo.status || 'activo'
+      status: input.vehiculo.status || 'activo',
+      cono: assignedCono
     }
 
     const vehiculo = await crearVehiculo(payloadVehiculo)
     return { cliente, vehiculo }
   } catch (err) {
-    console.error('Error crearRegistroCompleto:', err)
+    console.error('crearRegistroCompleto error', err)
     throw err
   }
 }
@@ -220,9 +296,18 @@ async function updateCliente(id, payload) {
     throw err
   }
 }
+
+// ------------------------
+// UPDATE VEHICULO (modificado: si status -> 'despachado' libera cono en la misma operación)
+// ------------------------
 async function updateVehiculo(id, payload) {
   try {
-    const { data, error } = await supabase.from('vehiculos').update(payload).eq('id', id).select().single()
+    // Si el payload pide despachar, asegurarnos de liberar cono (poner null)
+    const toUpdate = { ...payload }
+    if (payload && payload.status === 'despachado') {
+      toUpdate.cono = null
+    }
+    const { data, error } = await supabase.from('vehiculos').update(toUpdate).eq('id', id).select().single()
     if (error) throw error
     return data
   } catch (err) {
@@ -231,15 +316,33 @@ async function updateVehiculo(id, payload) {
   }
 }
 
-// borrar vehiculo
+// ------------------------
+// DELETE VEHICULO (mejorado): borra archivos asociados del storage y luego la fila en DB
+// ------------------------
 async function deleteVehiculo(id) {
+  if (!id) throw new Error('deleteVehiculo: id inválido');
   try {
-    const { data, error } = await supabase.from('vehiculos').delete().eq('id', id)
-    if (error) throw error
-    return data
+    // intentamos borrar y solicitamos el registro devuelto
+    const { data, error, status } = await supabase
+      .from('vehiculos')
+      .delete()
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('deleteVehiculo supabase error:', error);
+      throw error;
+    }
+    // data es el/los registros borrados (array). Si está vacío, es extraño.
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      console.warn('deleteVehiculo: no se devolvió data, puede que no exista el id o no tengas permisos.');
+    } else {
+      console.log('deleteVehiculo OK, borrados:', data);
+    }
+    return data;
   } catch (err) {
-    console.error('deleteVehiculo error', err)
-    throw err
+    console.error('deleteVehiculo exception:', err);
+    throw err;
   }
 }
 
@@ -757,43 +860,157 @@ function renderRegistrarForm() {
   }
 }
 
-// ------------------------
-// Preview helper
-// ------------------------
+// ---------- RENDER PREVIEW (Formularios) ----------
+// Reemplaza tu renderPreview anterior por esta versión.
+// NOTA: esta función asume que `selectedTableroFiles` y `selectedFotosFiles` (o arrays) 
+// están siendo actualizados por los inputs al seleccionar archivos.
 function renderPreview(target, files) {
-  const preview = document.getElementById('preview-' + target)
-  if (!preview) return
-  preview.innerHTML = ''
-  files.forEach(file => {
-    const reader = new FileReader()
+  const preview = document.getElementById('preview-' + target);
+  if (!preview) return;
+  preview.innerHTML = '';
+
+  // files puede ser FileList o array
+  const fileArray = files ? Array.from(files) : [];
+
+  fileArray.forEach((file, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'img-wrapper';
+
+    const img = document.createElement('img');
+    img.alt = file.name || `imagen-${idx}`;
+
+    // al click: abrir lightbox
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', () => {
+      // si es local (dataURL) estará ya en src; abrir con esa url
+      // si no, intentamos abrir por objeto File (no será posible). Para form previews siempre usamos dataURL.
+      if (img.src) openLightbox(img.src, img.alt);
+    });
+
+    // botón para eliminar la foto seleccionada (solo en formulario)
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-btn';
+    removeBtn.title = 'Eliminar foto';
+    removeBtn.innerText = '×';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // remover del DOM preview
+      wrapper.remove();
+      // también remover del array global correspondiente
+      if (target === 'tablero') {
+        selectedTableroFiles = selectedTableroFiles.filter((f, i) => !(i === idx));
+      } else if (target === 'vehiculo') {
+        selectedFotosFiles = selectedFotosFiles.filter((f, i) => !(i === idx));
+      }
+      // volver a renderizar (re-index)
+      if (target === 'tablero') renderPreview('tablero', selectedTableroFiles);
+      else renderPreview('vehiculo', selectedFotosFiles);
+    });
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(removeBtn);
+    preview.appendChild(wrapper);
+
+    // leer archivo como DataURL
+    const reader = new FileReader();
     reader.onload = (e) => {
-      const img = document.createElement('img')
-      img.src = e.target.result
-      img.alt = file.name
-      img.style.maxWidth = '120px'
-      img.style.margin = '6px'
-      img.style.borderRadius = '8px'
-      img.style.objectFit = 'cover'
-      preview.appendChild(img)
-    }
-    reader.readAsDataURL(file)
-  })
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Si no hay archivos, mostrar hint
+  if (!fileArray.length) {
+    preview.innerHTML = `<div style="color:var(--muted);font-size:0.95rem">No hay imágenes seleccionadas.</div>`;
+  }
 }
 
-// Signature pad
+// ------------------------
+// Setup photo buttons (adjuntar a botones de la UI): usa append para vehiculo y replace para tablero
+// Llama a esta función desde renderRegistrarForm() justo después de renderizar el HTML.
+// ------------------------
+function setupPhotoButtons() {
+  const btnTab = document.getElementById('btn-foto-tablero')
+  if (btnTab) {
+    btnTab.addEventListener('click', () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      // intento de abrir cámara en móviles
+      if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) input.setAttribute('capture', 'environment')
+      input.onchange = () => {
+        // reemplazamos tablero (solo 1)
+        selectedTableroFiles = input.files && input.files.length ? [input.files[0]] : []
+        renderPreview('tablero', selectedTableroFiles)
+      }
+      input.click()
+    })
+  }
+
+  const btnVeh = document.getElementById('btn-foto-vehiculo')
+  if (btnVeh) {
+    btnVeh.addEventListener('click', () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.multiple = true
+      if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) input.setAttribute('capture', 'environment')
+      input.onchange = () => {
+        const newFiles = input.files ? Array.from(input.files) : []
+        // append (no reemplazar) — para tablets donde antes se perdían las anteriores
+        selectedFotosFiles = (selectedFotosFiles || []).concat(newFiles)
+        renderPreview('vehiculo', selectedFotosFiles)
+      }
+      input.click()
+    })
+  }
+}
+
+// ------------------------
+// signature pad: se ajusta el canvas al contenedor para que NO sobresalga (versión mejorada)
+// ------------------------
 function initSignaturePad() {
   const canvas = document.getElementById('signature-pad')
   if (!canvas) return
+
+  // ajustar tamaño del canvas para que quepa en su contenedor y no sobresalga
+  function resizeCanvasToDisplaySize() {
+    const ratio = window.devicePixelRatio || 1
+    // limitar ancho al 100% del contenedor padre
+    const parent = canvas.parentElement || document.body
+    const maxW = Math.max(300, Math.min(900, parent.clientWidth - 32)) // valores razonables
+    const desiredWidth = maxW
+    const desiredHeight = canvas.height // mantener altura definida
+    canvas.style.width = desiredWidth + 'px'
+    canvas.style.height = desiredHeight + 'px'
+    canvas.width = Math.floor(desiredWidth * ratio)
+    canvas.height = Math.floor(desiredHeight * ratio)
+    const ctx = canvas.getContext('2d')
+    ctx.scale(ratio, ratio)
+    // opcional: mantener estilo de stroke tras resize
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#0f172a'
+  }
+
+  // inicial resize
+  resizeCanvasToDisplaySize()
+  // re-resize on window resize
+  window.addEventListener('resize', () => {
+    // guardamos la imagen actual para re-dibujar (si quieres mantener la firma entre resizes tendrías que serializarla)
+    resizeCanvasToDisplaySize()
+  })
+
   const ctx = canvas.getContext('2d')
   let drawing = false
   let last = { x: 0, y: 0 }
 
   function getPos(e) {
+    const rect = canvas.getBoundingClientRect()
     if (e.touches && e.touches.length) {
-      const rect = canvas.getBoundingClientRect()
       return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }
     } else {
-      const rect = canvas.getBoundingClientRect()
       return { x: e.clientX - rect.left, y: e.clientY - rect.top }
     }
   }
@@ -827,6 +1044,7 @@ function initSignaturePad() {
   const clearBtn = document.getElementById('clear-sign')
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
+      // limpiar canvas respetando el tamaño actual
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     })
   }
@@ -997,6 +1215,55 @@ function collectChecklist() {
   const obj = {}
   checks.forEach(ch => { obj[ch.value] = ch.checked })
   return obj
+}
+
+// ------------------------
+// LIGHTBOX (visor de imagenes)
+// ------------------------
+function ensureImageLightbox() {
+  if (document.getElementById('img-lightbox')) return;
+  const lb = document.createElement('div');
+  lb.id = 'img-lightbox';
+  lb.style = `
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background: rgba(0,0,0,0.75); z-index: 10010; padding:20px;
+  `;
+  lb.setAttribute('aria-hidden', 'true');
+  lb.innerHTML = `
+    <div style="position:relative;max-width:95%;max-height:95%;">
+      <button id="img-lightbox-close" aria-label="Cerrar" style="position:absolute;right:-8px;top:-8px;background:#fff;border-radius:999px;border:none;padding:6px 10px;cursor:pointer;font-weight:700;z-index:10">✕</button>
+      <img id="img-lightbox-img" src="" alt="" style="display:block;max-width:100%;max-height:85vh;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,0.4)" />
+    </div>
+  `;
+  document.body.appendChild(lb);
+
+  document.getElementById('img-lightbox-close').addEventListener('click', closeLightbox);
+  lb.addEventListener('click', (e) => { if (e.target === lb) closeLightbox(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+}
+
+function openLightbox(url, alt = '') {
+  try {
+    ensureImageLightbox();
+    const lb = document.getElementById('img-lightbox');
+    const img = document.getElementById('img-lightbox-img');
+    if (!lb || !img) return;
+    img.src = url || '';
+    img.alt = alt || '';
+    lb.setAttribute('aria-hidden', 'false');
+    lb.style.display = 'flex';
+  } catch (err) {
+    console.warn('openLightbox error', err);
+  }
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('img-lightbox');
+  if (!lb) return;
+  lb.setAttribute('aria-hidden', 'true');
+  lb.style.display = 'none';
+  const img = document.getElementById('img-lightbox-img');
+  if (img) img.src = '';
 }
 
 // ------------------------
@@ -1177,26 +1444,45 @@ function renderModalContent(registro, cliente) {
 
   // helper para generar url pública si es posible
   const bucket = 'vehiculos-photos'
+  // dentro de renderModalContent --> helper addImg actualizado
   const addImg = (container, pathOrObj) => {
-    if (!container) return
-    const img = document.createElement('img')
-    let src = ''
-    if (!pathOrObj) return
+    if (!container || !pathOrObj) return;
+    const img = document.createElement('img');
+    img.style.cursor = 'zoom-in';
+    img.style.width = '120px';
+    img.style.height = '80px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '8px';
+    img.style.marginRight = '8px';
+
+    let src = '';
+    let alt = '';
+
     if (typeof pathOrObj === 'string') {
-      try {
-        const { data } = supabase.storage.from(bucket).getPublicUrl(pathOrObj)
-        src = data?.publicUrl || data?.publicURL || ''
-      } catch (e) { src = '' }
+      alt = pathOrObj.split('/').pop() || 'foto';
+      src = getPublicUrlSync(pathOrObj);
+    } else if (pathOrObj && pathOrObj.publicUrl) {
+      src = pathOrObj.publicUrl;
+      alt = pathOrObj.name || pathOrObj.path || 'foto';
     } else if (pathOrObj && pathOrObj.path) {
-      try {
-        const { data } = supabase.storage.from(bucket).getPublicUrl(pathOrObj.path)
-        src = data?.publicUrl || data?.publicURL || ''
-      } catch(e) { src = '' }
+      src = getPublicUrlSync(pathOrObj.path);
+      alt = pathOrObj.name || pathOrObj.path || 'foto';
     }
-    img.src = src || ''
-    img.alt = pathOrObj.name || pathOrObj.path || 'foto'
-    container.appendChild(img)
-  }
+
+    if (!src) {
+      const no = document.createElement('div');
+      no.innerText = 'Imagen no disponible';
+      no.style.color = 'var(--muted)';
+      container.appendChild(no);
+      return;
+    }
+
+    img.src = src;
+    img.alt = alt;
+    img.addEventListener('click', () => openLightbox(src, alt));
+    container.appendChild(img);
+  };
+
 
   if (tablero) {
     addImg(previewTab, tablero)
@@ -1388,6 +1674,79 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
+}
+
+// ------------------------
+// Realtime + Notificaciones (pide permiso y suena)
+// ------------------------
+async function setupRealtimeNotifications() {
+  // pedir permiso para notificaciones browser
+  if ('Notification' in window && Notification.permission !== 'granted') {
+    try {
+      await Notification.requestPermission()
+    } catch (e) {
+      console.warn('No se pudo solicitar permiso de notificaciones', e)
+    }
+  }
+
+  // crear sonido simple con WebAudioAPI para evitar dependencia de ficheros
+  function playNotificationSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.value = 880
+      g.gain.value = 0.0015
+      o.connect(g)
+      g.connect(ctx.destination)
+      o.start()
+      // subir volumen ligeramente y detener
+      g.gain.exponentialRampToValueAtTime(0.02, ctx.currentTime + 0.02)
+      setTimeout(() => {
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12)
+        setTimeout(() => { try { o.stop(); ctx.close() } catch(e){} }, 150)
+      }, 120)
+    } catch (e) {
+      console.warn('playNotificationSound error', e)
+    }
+  }
+
+  // subscribir al canal si no lo hemos hecho
+  try {
+    // usamos un canal con nombre único
+    const channel = supabase.channel('vehiculos_changes_ui')
+
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'vehiculos' }, payload => {
+      console.log('Realtime vehiculos payload', payload)
+      // si es INSERT -> mostrar notificación y reproducir sonido, recargar lista
+      if (payload.eventType === 'INSERT') {
+        const newRec = payload.new || payload.record || {}
+        const title = 'Nuevo registro'
+        const body = `${newRec.placa ? ('Placa: ' + newRec.placa + ' · ') : ''}${newRec.marca || ''} ${newRec.modelo || ''}`
+        // mostrar notificación si permiso
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            const n = new Notification(title, { body, silent: true })
+            // clic abre la app o trae foco
+            n.onclick = () => window.focus()
+          } catch (e) { console.warn('Notification error', e) }
+        }
+        // reproducir sonido
+        playNotificationSound()
+        // recargar registros en UI
+        cargarRegistros().catch(e => console.error('Error recargando registros por realtime', e))
+      } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+        // recargar para mantener UI sincronizada
+        cargarRegistros().catch(e => console.error('Error recargando registros por realtime', e))
+      }
+    })
+
+    await channel.subscribe()
+    console.log('Realtime subscription establecida (vehiculos_changes_ui)')
+  } catch (e) {
+    console.warn('setupRealtimeNotifications: no se pudo suscribir', e)
+  }
 }
 
 // ------------------------

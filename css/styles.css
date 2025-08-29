@@ -14,6 +14,11 @@
   --gap: 12px;
   --max-width: 1080px;
   --touch-size: 48px;
+
+  /* sizes */
+  --btn-mobile-width: 100%;
+  --btn-desktop-width: 280px;
+  --registro-min-height: 96px;
 }
 
 /* --------- Reset y base --------- */
@@ -117,6 +122,10 @@ body {
   cursor: pointer;
   box-shadow: none;
   transition: transform 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 #login-form button:active {
@@ -157,18 +166,20 @@ body {
   flex-wrap: wrap;
 }
 
+/* Buttons: mobile full-width, desktop fixed width */
 .btn,
 button[type='submit'] {
-  width: 260px;
-  height: 50px; /* Ancho unificado para todos los botones principales */
-  padding: 16px 26px;
+  width: var(--btn-mobile-width);
+  max-width: 100%;
+  height: 50px; /* altura por defecto */
+  padding: 12px 18px;
   border: none;
   cursor: pointer;
   font-weight: 700;
   border-radius: var(--radius);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   box-shadow: none;
-  transition: transform 0.1s ease;
+  transition: transform 0.1s ease, box-shadow .12s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -220,6 +231,7 @@ button[type='submit']:active {
   box-shadow: 0 8px 24px rgba(239, 68, 68, 0.18);
 }
 
+/* Content */
 #content {
   margin-top: 12px;
   min-height: 220px;
@@ -246,6 +258,11 @@ p {
     height: 52px;
     font-size: 1.05rem;
   }
+
+  /* Buttons: tablet and up use fixed width for nicer layout */
+  .btn, button[type='submit'] {
+    width: var(--btn-desktop-width);
+  }
 }
 
 @media (min-width: 900px) {
@@ -260,12 +277,13 @@ p {
     gap: 20px;
   }
   .btn {
-    width: 280px;
+    width: var(--btn-desktop-width);
     font-size: 1.1rem;
     padding: 16px 26px;
   }
 }
 
+/* focus visible */
 button:focus,
 input:focus {
   box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.08);
@@ -336,7 +354,7 @@ input:focus {
 
 /* --- Formulario registrar --- */
 .registro-card {
-  max-width: 600px;
+  max-width: 760px;
   margin: 20px auto;
   background: var(--card);
   padding: 24px;
@@ -384,6 +402,7 @@ legend {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+/* grid for checklist - responsive */
 .check-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -399,8 +418,10 @@ legend {
   align-items: center;
   font-size: 0.95rem;
   color: #333;
+  padding: 6px 8px;
 }
 
+/* photos UI */
 .foto-section {
   display: flex;
   justify-content: center;
@@ -410,43 +431,85 @@ legend {
   margin-bottom: 15px;
 }
 
+/* small circular btn for photo */
 .btn-foto {
   background-color: var(--primary);
   color: white;
   border: none;
   font-size: 24px;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius);
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* preview area: now with wrapper and remove button */
 .preview {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.preview .img-wrapper {
+  position: relative;
+  display: inline-block;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
 }
 
 .preview img {
   max-width: 120px;
+  display: block;
   border-radius: var(--radius);
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
+/* remove (X) button on top-right of preview */
+.preview .img-wrapper .remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(239, 68, 68, 0.95);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+/* signature area: prevent overflow and make canvas responsive */
 .signature-wrap {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 12px;
   overflow: hidden;
+  background: #fff;
 }
 
+/* Make canvas responsive visually — note: JS must resize canvas backing store */
 #signature-pad {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100%;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: var(--radius);
   background: #fdfdfd;
+  display: block;
 }
 
+/* clear button */
 #clear-sign {
   background: #e2e8f0;
   color: #333;
@@ -466,16 +529,49 @@ legend {
   gap: 12px; /* Reducción de gap entre registros */
 }
 
+/* registro card: use auto height, responsive layout inside */
 .registro {
   background: #ffffff;
-  height: 120px;
-  padding: 12px; /* Reducción de padding interno */
+  padding: 12px;
   border-radius: var(--radius);
   box-shadow: 0 6px 18px rgba(10, 20, 40, 0.06);
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--registro-min-height);
 }
 
+.registro .left {
+  flex: 1 1 auto;
+}
+
+.registro .right {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* cone/number badge */
+.cone-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  font-weight: 800;
+  margin-left: 10px;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* hover */
 .registro:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 26px rgba(10, 20, 40, 0.12);
@@ -487,6 +583,7 @@ legend {
   pointer-events: auto;
 }
 
+/* modal */
 .modal {
   position: fixed;
   inset: 0;
@@ -530,12 +627,27 @@ legend {
   cursor: pointer;
 }
 
+/* modal content rows */
 .modal-body .row {
   display: flex;
   gap: 12px;
   align-items: flex-start;
   margin-bottom: 10px;
   flex-wrap: wrap;
+}
+
+/* split client / vehicle into two columns for larger screens */
+.modal-body .two-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (min-width: 720px) {
+  .modal-body .two-cols {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .modal-body label {
@@ -560,6 +672,7 @@ legend {
   resize: vertical;
 }
 
+/* modal actions */
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -598,6 +711,7 @@ legend {
   cursor: not-allowed;
 }
 
+/* modal previews */
 .modal-preview {
   display: flex;
   gap: 8px;
@@ -611,8 +725,46 @@ legend {
   object-fit: cover;
   border-radius: var(--radius);
   border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
 }
 
+/* Lightbox / image viewer */
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.85);
+  z-index: 20000;
+  padding: 20px;
+}
+
+.img-lightbox[aria-hidden='false'] {
+  display: flex;
+}
+
+.img-lightbox img {
+  max-width: 95%;
+  max-height: 95%;
+  border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+}
+
+.img-lightbox .close-light {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+/* small screen adjustments */
 @media (max-width: 720px) {
   .modal-panel {
     padding: 12px;
@@ -623,3 +775,22 @@ legend {
     flex-direction: column;
   }
 }
+
+/* smaller phones */
+@media (max-width: 420px) {
+  .registro-card { padding: 18px; }
+  .btn, button[type='submit'] { height: 46px; font-size: .98rem; padding: 10px 12px; }
+  .preview img { max-width: 90px; }
+  .modal-preview img { width: 100px; height: 70px; }
+}
+
+/* Accessibility focus */
+button:focus, input:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(14,165,233,0.08); outline: none; }
+
+/* Utility classes */
+.hidden { display: none !important; }
+.flex { display: flex; }
+.center { display: flex; align-items: center; justify-content: center; }
+.muted { color: var(--muted); }
+
+/* End of file */
