@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>App Test Notis</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>Notificaciones en Tiempo Real</h1>
+  <button id="btn">Enviar Notificación</button>
+  <div id="notis"></div>
+
+  <script>
+    const socket = io()
+
+    const btn = document.getElementById("btn")
+    const notis = document.getElementById("notis")
+
+    btn.addEventListener("click", () => {
+      socket.emit("sendNotification", "🚀 Notificación lanzada!")
+    })
+
+    socket.on("notification", (msg) => {
+      const p = document.createElement("p")
+      p.textContent = msg
+      notis.appendChild(p)
+    })
+  </script>
+</body>
+</html>
